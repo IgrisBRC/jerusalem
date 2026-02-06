@@ -18,7 +18,6 @@ pub fn handle_get(
         util::write_to_wstream(wstream, b"-ERR Protocol Error\r\n")?;
         util::cleanup(count_ledger, reader_lines);
         return Ok(());
-        // continue;
     }
 
     let key = match util::validate_and_get_next_term(reader_lines, count_ledger) {
@@ -26,7 +25,6 @@ pub fn handle_get(
         Err(e) => {
             util::write_to_wstream(wstream, format!("{}\r\n", e).as_bytes())?;
             return Ok(());
-            // continue;
         }
     };
 

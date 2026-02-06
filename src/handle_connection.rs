@@ -5,9 +5,12 @@ use std::{
 
 use crate::memory_database::MemoryDatabase;
 
-pub mod util;
-pub mod handle_get;
-pub mod handle_set;
+mod util;
+mod handle_get;
+mod handle_set;
+mod handle_del;
+mod handle_exists;
+mod handle_incr;
 
 pub fn handle_connection(rstream: TcpStream, db: &mut MemoryDatabase) -> Result<(), String> {
     let mut wstream = BufWriter::new(&rstream);
@@ -52,6 +55,15 @@ pub fn handle_connection(rstream: TcpStream, db: &mut MemoryDatabase) -> Result<
             }
             "COMMAND" => {
                 util::write_to_wstream(&mut wstream, b"*0\r\n")?;
+            }
+            "DEL" => {
+                handle_del::handle_del(db, &mut reader_lines, count, &mut wstream, &mut count_ledger)?;
+            }
+            "EXISTS" => {
+                handle_exists::handle_exists(db, &mut reader_lines, count, &mut wstream, &mut count_ledger)?;
+            }
+            "INCR" => {
+                handle_incr::handle_incr(db, &mut reader_lines, count, &mut wstream, &mut count_ledger)?;
             }
 
             _ => {

@@ -1,20 +1,18 @@
 
-
-
 use std::collections::hash_map::Entry;
 use std::{collections::HashMap, time::SystemTime};
 type GodMap = HashMap<String, (Vec<u8>, Option<SystemTime>)>;
 
 #[derive(Debug)]
 pub struct MemoryDatabase {
-    name: String,
+    _name: String,
     map: GodMap,
 }
 
 impl MemoryDatabase {
     pub fn new(db_name: &str) -> Self {
         MemoryDatabase {
-            name: db_name.to_string(),
+            _name: db_name.to_string(),
             map: GodMap::new(),
         }
     }
@@ -44,23 +42,12 @@ impl MemoryDatabase {
     ) -> Option<(Vec<u8>, Option<SystemTime>)> {
         self.map.insert(key.to_string(), val)
     }
-}
 
-// #[derive(Debug)]
-// enum StorageLocation {
-//     ProjectLocal,
-//     Persistent,
-//     MemoryOnly,
-// }
-//
-// impl StorageLocation {
-//     fn as_path(&self) -> &str {
-//         match self {
-//             // Using relative path so it works even if you move the folder
-//             StorageLocation::ProjectLocal => "/home/Igris/RustProjects/mini_redis",
-//             StorageLocation::Persistent => "/var/lib/mini_redis",
-//             StorageLocation::MemoryOnly => "/dev/shm",
-//         }
-//     }
-// }
+    pub fn remove(
+        &mut self,
+        key: &str,
+    ) -> Option<(Vec<u8>, Option<SystemTime>)>{
+        self.map.remove(key)
+    }
+}
 

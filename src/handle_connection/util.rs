@@ -36,7 +36,6 @@ pub fn validate_and_get_next_term(
             .ok_or("Connnection closed unexpectedly?")?
             .map_err(|_| "Failed to read line")?;
         *count_ledger -= 1;
-
         Err("-ERR Protocol Error: ")?
     };
 
