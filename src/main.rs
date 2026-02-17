@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 
-use mini_redis::handle_wish::Pilgrim;
-use mini_redis::handle_wish::handle_wish;
+use mini_redis::choir::Choir;
 use mini_redis::temple::Temple;
+use mini_redis::wish::{self, Pilgrim};
 use mio::net::TcpListener;
 use mio::{Events, Interest, Poll, Token};
 
@@ -29,6 +29,8 @@ fn main() {
     let mut pilgrim_map = HashMap::new();
     let mut pilgrim_counter = 1;
 
+    let choir = Choir::new(5);
+
     let temple = Temple::new("IgrisDB".to_string());
 
     loop {
@@ -40,7 +42,7 @@ fn main() {
                 SERVER => loop {
                     match listener.accept() {
                         Ok((mut stream, address)) => {
-                            println!("Got a connection from: {}", address);
+                            // println!("Got a connection from: {}", address);
 
                             let pilgrim_token = Token(pilgrim_counter);
 
@@ -69,13 +71,12 @@ fn main() {
                 },
 
                 Token(token_number) => {
-                    if let Some(connection) = pilgrim_map.get_mut(&Token(token_number)) {
-                        if let Err(_) = handle_wish(connection, temple.sanctify()) {
+                    if let Some(pilgrim) = pilgrim_map.get_mut(&Token(token_number)) {
+                        if let Err(_) = wish::wish(pilgrim, temple.sanctify()) {
                             pilgrim_map.remove(&Token(token_number));
                         }
                     }
                 }
-                _ => {}
             }
         }
     }
