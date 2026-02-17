@@ -19,9 +19,7 @@ IgrisDB is designed around a **Single-Threaded Worker (Actor Model)**. Instead o
 | Command | Description | Variadic |
 | :--- | :--- | :--- |
 | `GET` | Retrieve the value of a key | No |
-| `SET` | Set key to hold string value (supports `EX` for TTL) | No |
+| `SET` | Set key to hold string value | No |
 | `DEL` | Removes the specified keys | **Yes** |
-| `EXISTS` | Returns the count of existing keys | **Yes** |
-| `INCR` | Increments the number stored at key by one | No |
 | `PING` | Returns `PONG` to test connection | No |
 
