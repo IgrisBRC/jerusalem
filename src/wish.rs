@@ -120,8 +120,10 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple) -> Result<(), Sin> {
                         return Err(Sin::Blasphemy);
                     }
 
-                    let term = std::str::from_utf8(&virtue.backlog[..characters_remaining])
-                        .map_err(|_| Sin::Utf8Error)?;
+                    // let term = std::str::from_utf8(&virtue.backlog[..characters_remaining])
+                    //     .map_err(|_| Sin::Utf8Error)?;
+                    
+                    let term = &virtue.backlog[..characters_remaining];
 
                     virtue.terms.push(term.into());
 
@@ -129,7 +131,6 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple) -> Result<(), Sin> {
                     virtue.phase = Phase::GraspingMarker;
 
                     if virtue.terms.len() == virtue.expected_terms {
-                        // println!("Wish received {:?}", virtue.terms);
 
                         grant::grant(&virtue.terms, &mut pilgrim.stream, &mut temple, pilgrim.tx.clone(), &pilgrim.rx)?;
 

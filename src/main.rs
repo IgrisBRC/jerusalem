@@ -29,7 +29,7 @@ fn main() {
     let mut pilgrim_map = HashMap::new();
     let mut pilgrim_counter = 1;
 
-    let choir = Choir::new(5);
+    let choir = Choir::new(6);
 
     let temple = Temple::new("IgrisDB".to_string());
 
@@ -40,23 +40,37 @@ fn main() {
             pilgrim_map.insert(token, pilgrim);
         }
 
-        poll.poll(&mut events, Some(std::time::Duration::from_millis(0)));
+        // for _ in 0..256 {
+        //     match rx.try_recv() {
+        //         Ok((token, pilgrim)) => { pilgrim_map.insert(token, pilgrim); }
+        //         Err(_) => break,
+        //     }
+        // }
+        
+        if poll
+            .poll(&mut events, Some(std::time::Duration::from_millis(0)))
+            .is_err()
+        {
+            eprintln!("poll() gone wrong");
+        }
 
         for event in &events {
             let token = event.token();
             match token {
                 SERVER => loop {
                     match listener.accept() {
-                        Ok((mut stream, address)) => {
+                        Ok((mut stream, _address)) => {
                             // println!("Got a connection from: {}", address);
 
                             let pilgrim_token = Token(pilgrim_counter);
 
-                            poll.registry().register(
+                            if poll.registry().register(
                                 &mut stream,
                                 pilgrim_token,
                                 Interest::READABLE | Interest::WRITABLE,
-                            );
+                            ).is_err() {
+                                eprintln!("register() gone wrong");
+                            }
 
                             pilgrim_counter += 1;
 
@@ -68,7 +82,7 @@ fn main() {
                                     stream,
                                     virtue: None,
                                     tx: pilgrim_tx,
-                                    rx: pilgrim_rx
+                                    rx: pilgrim_rx,
                                 },
                             );
                         }
@@ -88,7 +102,9 @@ fn main() {
 
                         choir.sing(move || {
                             if let Ok(_) = wish::wish(&mut pilgrim, sanctum) {
-                                tx.send((mio::Token(token_number), pilgrim));
+                                if tx.send((mio::Token(token_number), pilgrim)).is_err() {
+                                    eprintln!("angel panicked");
+                                }
                             }
                         });
                     }

@@ -19,9 +19,7 @@ pub fn get(terms: &[Vec<u8>], stream: &mut TcpStream, temple: &mut Temple,
         return Ok(())
     }
 
-    let key = std::str::from_utf8(&terms[1]).map_err(|_| Sin::Utf8Error)?;
-
-    match temple.get(key.into(), tx, rx) {
+    match temple.get(terms[1].clone(), tx, rx) {
         Some((Value::String(value), _)) => {
 
             let mut response = Vec::with_capacity(value.len() + 16);

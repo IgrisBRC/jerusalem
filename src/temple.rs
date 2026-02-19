@@ -81,13 +81,19 @@ impl Temple {
             while let Ok(wish) = rx.recv() {
                 match wish {
                     Wish::Get { key, tx } => {
-                        tx.send(soul.get(key));
+                        if tx.send(soul.get(key)).is_err() {
+                            eprintln!("angel panicked");
+                        }
                     }
                     Wish::Insert { key, val, tx } => {
-                        tx.send(soul.insert(key, val));
+                        if tx.send(soul.insert(key, val)).is_err() {
+                            eprintln!("angel panicked");
+                        }
                     }
                     Wish::Remove { key, tx } => {
-                        tx.send(soul.remove(key));
+                        if tx.send(soul.remove(key)).is_err() {
+                            eprintln!("angel panicked");
+                        }
                     }
                 }
             }
@@ -102,7 +108,9 @@ impl Temple {
         tx: Sender<Option<(Value, Option<SystemTime>)>>,
         rx: &Receiver<Option<(Value, Option<SystemTime>)>>,
     ) -> Option<(Value, Option<SystemTime>)> {
-        self.tx.send(Wish::Get { key, tx });
+        if self.tx.send(Wish::Get { key, tx }).is_err() {
+            eprintln!("angel panicked");
+        }
 
         rx.recv().unwrap_or(None)
     }
@@ -114,11 +122,14 @@ impl Temple {
         tx: Sender<Option<(Value, Option<SystemTime>)>>,
         rx: &Receiver<Option<(Value, Option<SystemTime>)>>,
     ) -> Option<(Value, Option<SystemTime>)> {
-        self.tx.send(Wish::Insert {
+        if self.tx.send(Wish::Insert {
             key,
             val: value,
             tx,
-        });
+        }).is_err() {
+            eprintln!("angel panicked");
+        }
+
 
         rx.recv().unwrap_or(None)
     }
@@ -129,8 +140,10 @@ impl Temple {
         tx: Sender<Option<(Value, Option<SystemTime>)>>,
         rx: &Receiver<Option<(Value, Option<SystemTime>)>>,
     ) -> Option<(Value, Option<SystemTime>)> {
+        if self.tx.send(Wish::Remove { key, tx }).is_err() {
+            eprintln!("angel panicked");
+        }
 
-        self.tx.send(Wish::Remove { key, tx });
 
         rx.recv().unwrap_or(None)
     }

@@ -6,6 +6,10 @@ mod del;
 mod get;
 mod ping;
 mod set;
+mod exists;
+mod incr;
+mod decr;
+mod append;
 
 pub fn grant(
     terms: &[Vec<u8>],
@@ -23,6 +27,10 @@ pub fn grant(
         "GET" => get::get(terms, stream, temple, tx, rx)?,
         "PING" => ping::ping(stream)?,
         "DEL" => del::del(terms, stream, temple, tx, rx)?,
+        "EXISTS" => exists::exists(terms, stream, temple, tx, rx)?,
+        "INCR" => incr::incr(terms, stream, temple, tx, rx)?,
+        "DECR" => decr::decr(terms, stream, temple, tx, rx)?,
+        "APPEND" => append::append(terms, stream, temple, tx, rx)?,
         "COMMAND" => stream
             .write_all(b"+OK\r\n")
             .map_err(|_| Sin::Disconnected)?,
