@@ -22,37 +22,55 @@ pub fn set(
     if let (Some(key), Some(value)) = (terms_iter.next(), terms_iter.next()) {
         match terms_iter.next() {
             Some(command) => {
-                if let (Ok("EX"), Some(expiry)) = (std::str::from_utf8(&command), terms_iter.next())
-                {
-                    if let Ok(expiry) = std::str::from_utf8(&expiry) {
-                        if let Ok(expiry) = expiry.parse::<u64>() {
-                            temple.set(
-                                key,
-                                (
-                                    Value::String(value),
-                                    Some(
-                                        SystemTime::now() + std::time::Duration::from_secs(expiry),
-                                    ),
-                                ),
-                                tx,
-                                token,
-                            );
-
-                            return Ok(());
-                        }
-                    }
-
-                    if tx
-                        .send(Decree::Deliver(Gift {
-                            token,
-                            response: Response::Error(Sacrilege::IncorrectUsage(Command::SET)),
-                        }))
-                        .is_err()
+                if let Ok(command) = std::str::from_utf8(&command) {
+                    if let ("EX", Some(expiry)) =
+                        (command.to_uppercase().as_str(), terms_iter.next())
                     {
-                        eprintln!("angel panicked")
-                    };
+                        if let Ok(expiry) = std::str::from_utf8(&expiry) {
+                            if let Ok(expiry) = expiry.parse::<u64>() {
+                                temple.set(
+                                    key,
+                                    (
+                                        Value::String(value),
+                                        Some(
+                                            SystemTime::now()
+                                                + std::time::Duration::from_secs(expiry),
+                                        ),
+                                    ),
+                                    tx,
+                                    token,
+                                );
 
-                    return Ok(())
+                                return Ok(());
+                            }
+                        }
+
+                        if tx
+                            .send(Decree::Deliver(Gift {
+                                token,
+                                response: Response::Error(Sacrilege::IncorrectUsage(Command::SET)),
+                            }))
+                            .is_err()
+                        {
+                            eprintln!("angel panicked")
+                        };
+
+                        return Ok(());
+                    } else {
+                        if tx
+                            .send(Decree::Deliver(Gift {
+                                token,
+                                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(
+                                    Command::SET,
+                                )),
+                            }))
+                            .is_err()
+                        {
+                            eprintln!("angel panicked")
+                        };
+
+                        return Ok(());
+                    }
                 } else {
                     if tx
                         .send(Decree::Deliver(Gift {
@@ -85,6 +103,6 @@ pub fn set(
             eprintln!("angel panicked")
         };
 
-        return Ok(())
+        return Ok(());
     }
 }

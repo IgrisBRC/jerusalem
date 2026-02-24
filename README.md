@@ -7,11 +7,12 @@ This is under development, if you wanna know about the progress, keep reading.
 | Command | Category | Status | Notes |
 | :--- | :--- | :--- | :--- |
 | SET | String | Supported | Now supports EX (seconds) for TTL |
-| GET | String | Supported | Functional, but does not display TTL remaining yet |
-| DEL | String | Supported | Specifically for string keys |
+| GET | String | Supported | Functional |
+| DEL | Any type | Supported | Can delete any available data type |
 | APPEND | String | Supported | Working |
 | INCR | String | Supported | Atomic increment for numeric strings |
-| PING | Connection | Supported | Does not support pipelining |
+| DECR | String | Supported | Atomic decrement for numeric strings |
+| PING | Connection | Supported | Functional, but does not support incorrect pipelining (more on that further) | 
 | HSET | Hashmap | Supported | Supports single setting and multiple values |
 | HGET | Hashmap | Supported | Supports single values |
 | HMGET | Hashmap | Supported | Supports single and multiple values |
