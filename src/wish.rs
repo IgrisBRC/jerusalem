@@ -35,11 +35,24 @@ pub enum Command {
     INCR,
     DECR,
     APPEND,
+    STRLEN,
     EXISTS,
     DEL,
     HSET,
     HGET,
     HMGET,
+    HDEL,
+    HEXISTS,
+    HLEN,
+    LPUSH,
+    LPOP,
+    RPUSH,
+    RPOP,
+    LLEN,
+    LRANGE,
+    LINDEX,
+    LSET,
+    LREM
 }
 
 pub enum Sacrilege {

@@ -7,6 +7,7 @@ use jerusalem::egress;
 use jerusalem::temple::Temple;
 use jerusalem::wish::grant::Decree;
 use jerusalem::wish::{self, Pilgrim};
+
 use mio::net::TcpListener;
 use mio::{Events, Interest, Poll, Token};
 
@@ -70,11 +71,13 @@ fn main() {
             ingress_map.insert(token, pilgrim);
 
             if let Some(p) = ingress_map.get_mut(&token) {
-                poll.registry().reregister(
+                if poll.registry().reregister(
                     &mut p.stream,
                     token,
                     Interest::READABLE | Interest::WRITABLE,
-                );
+                ).is_err() {
+                    eprintln!("reregister() failed");
+                }
             }
         }
 
@@ -157,7 +160,7 @@ fn main() {
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("{:?}", e);
+                                    // eprintln!("{:?}", e);
                                 }
                             }
                         });
