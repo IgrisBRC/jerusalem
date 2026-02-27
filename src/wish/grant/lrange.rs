@@ -39,6 +39,7 @@ pub fn lrange(
     let (Some(starting_index), Some(ending_index)) =
         (bytes_to_i32(&starting_index), bytes_to_i32(&ending_index))
     else {
+
         if tx
             .send(Decree::Deliver(Gift {
                 token,

@@ -80,7 +80,7 @@ pub fn grant(
         "COMMAND" => {
             if tx
                 .send(Decree::Deliver(Gift {
-                    token: token,
+                    token,
                     response: Response::Info(InfoType::Ok),
                 }))
                 .is_err()
@@ -93,7 +93,7 @@ pub fn grant(
         "CONFIG" => {
             if tx
                 .send(Decree::Deliver(Gift {
-                    token: token,
+                    token,
                     response: Response::Info(InfoType::Ok),
                 }))
                 .is_err()
@@ -106,7 +106,7 @@ pub fn grant(
         _ => {
             if tx
                 .send(Decree::Deliver(Gift {
-                    token: token,
+                    token,
                     response: Response::Error(Sacrilege::UnknownCommand),
                 }))
                 .is_err()

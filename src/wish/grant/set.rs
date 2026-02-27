@@ -26,8 +26,8 @@ pub fn set(
                     if let ("EX", Some(expiry)) =
                         (command.to_uppercase().as_str(), terms_iter.next())
                     {
-                        if let Ok(expiry) = std::str::from_utf8(&expiry) {
-                            if let Ok(expiry) = expiry.parse::<u64>() {
+                        if let Ok(expiry) = std::str::from_utf8(&expiry)
+                            && let Ok(expiry) = expiry.parse::<u64>() {
                                 temple.set(
                                     key,
                                     (
@@ -43,7 +43,6 @@ pub fn set(
 
                                 return Ok(());
                             }
-                        }
 
                         if tx
                             .send(Decree::Deliver(Gift {
@@ -55,7 +54,7 @@ pub fn set(
                             eprintln!("angel panicked")
                         };
 
-                        return Ok(());
+                        Ok(())
                     } else {
                         if tx
                             .send(Decree::Deliver(Gift {
@@ -69,7 +68,7 @@ pub fn set(
                             eprintln!("angel panicked")
                         };
 
-                        return Ok(());
+                        Ok(())
                     }
                 } else {
                     if tx
@@ -84,12 +83,12 @@ pub fn set(
                         eprintln!("angel panicked")
                     };
 
-                    return Ok(());
+                    Ok(())
                 }
             }
             None => {
                 temple.set(key, (Value::String(value), None), tx, token);
-                return Ok(());
+                Ok(())
             }
         }
     } else {
@@ -103,6 +102,6 @@ pub fn set(
             eprintln!("angel panicked")
         };
 
-        return Ok(());
+        Ok(())
     }
 }

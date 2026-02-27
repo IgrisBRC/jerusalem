@@ -21,16 +21,14 @@ pub fn llen(
 
     if let Some(key) = terms_iter.next() {
         temple.llen(tx, key, token);
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LLEN)),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked");
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LLEN)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 
     Ok(())

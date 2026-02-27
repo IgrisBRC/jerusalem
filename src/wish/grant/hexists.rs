@@ -21,16 +21,14 @@ pub fn hexists(
 
     if let (Some(key), Some(field)) = (terms_iter.next(), terms_iter.next()) {
         temple.hexists(tx, key, field, token);
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::HEXISTS)),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked");
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::HEXISTS)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 
     Ok(())

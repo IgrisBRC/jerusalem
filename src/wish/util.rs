@@ -18,7 +18,7 @@ pub fn bytes_to_i32(bytes: &[u8]) -> Option<i32> {
 
     let mut result = 0i32;
     for &b in &bytes[start..] {
-        if b < b'0' || b > b'9' {
+        if !b.is_ascii_digit() {
             return None;
         }
 
@@ -28,32 +28,3 @@ pub fn bytes_to_i32(bytes: &[u8]) -> Option<i32> {
     Some(if is_neg { -result } else { result })
 }
 
-// The one I made
-// fn bytes_to_i32(bytes: &[u8]) -> Option<i32> {
-//     if bytes.is_empty() {
-//         return None;
-//     }
-//
-//     let bytes_len = bytes.len();
-//
-//     let mut result: i32 = 0;
-//     let mut place = 1;
-//
-//     for idx in (1..bytes_len).rev() {
-//         if bytes[idx] < b'0' || bytes[idx] > b'9' {
-//             return None;
-//         }
-//
-//         result += place * (bytes[idx] - b'0') as i32;
-//         place *= 10;
-//     }
-//
-//     if bytes[0] == b'-' {
-//         return Some(-result);
-//     } else if bytes[0] >= b'0' && bytes[0] <= b'9' {
-//         result += place * (bytes[0] - b'0') as i32;
-//         return Some(result);
-//     } else {
-//         return None;
-//     }
-// }

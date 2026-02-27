@@ -21,13 +21,12 @@ pub fn lpop(
 
     if let Some(key) = terms_iter.next() {
         if let Some(count) = terms_iter.next() {
-            if let Ok(count) = std::str::from_utf8(&count) {
-                if let Ok(count) = count.parse::<usize>() {
+            if let Ok(count) = std::str::from_utf8(&count)
+                && let Ok(count) = count.parse::<usize>() {
                     temple.lpop_m(tx, key, count, token);
 
                     return Ok(());
                 }
-            }
 
             if tx
                 .send(Decree::Deliver(Gift {
@@ -43,16 +42,14 @@ pub fn lpop(
         }
 
         temple.lpop(tx, key, token);
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LPOP)),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked");
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LPOP)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 
     Ok(())

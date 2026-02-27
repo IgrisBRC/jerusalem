@@ -18,6 +18,12 @@ pub enum Value {
 
 pub struct Soul(HashMap<Vec<u8>, (Value, Option<SystemTime>)>);
 
+impl Default for Soul {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Soul {
     pub fn new() -> Self {
         Soul(HashMap::new())
@@ -28,17 +34,16 @@ impl Soul {
             Entry::Occupied(occupied) => {
                 let (value, expiry) = occupied.get();
 
-                if let Some(time) = expiry {
-                    if *time < SystemTime::now() {
+                if let Some(time) = expiry
+                    && *time < SystemTime::now() {
                         occupied.remove();
                         return Ok(None);
                     }
-                }
 
                 if let Value::String(value) = value {
-                    return Ok(Some(value.to_vec()));
+                    Ok(Some(value.to_vec()))
                 } else {
-                    return Err(Sacrilege::IncorrectUsage(Command::GET));
+                    Err(Sacrilege::IncorrectUsage(Command::GET))
                 }
             }
             Entry::Vacant(_) => Ok(None),
@@ -92,8 +97,8 @@ impl Soul {
 
         match entry {
             Some((Value::String(existing_value), expiry)) => {
-                if let Ok(existing_value) = std::str::from_utf8(&existing_value) {
-                    if let Ok(existing_value) = existing_value.parse::<i64>() {
+                if let Ok(existing_value) = std::str::from_utf8(&existing_value)
+                    && let Ok(existing_value) = existing_value.parse::<i64>() {
                         self.0.insert(
                             key,
                             (
@@ -104,7 +109,6 @@ impl Soul {
 
                         return Ok(existing_value + 1);
                     }
-                }
 
                 self.0.insert(key, (Value::String(existing_value), expiry));
                 Err(Sacrilege::IncorrectUsage(Command::INCR))
@@ -129,8 +133,8 @@ impl Soul {
 
         match entry {
             Some((Value::String(existing_value), expiry)) => {
-                if let Ok(existing_value) = std::str::from_utf8(&existing_value) {
-                    if let Ok(existing_value) = existing_value.parse::<i64>() {
+                if let Ok(existing_value) = std::str::from_utf8(&existing_value)
+                    && let Ok(existing_value) = existing_value.parse::<i64>() {
                         self.0.insert(
                             key,
                             (
@@ -141,7 +145,6 @@ impl Soul {
 
                         return Ok(existing_value - 1);
                     }
-                }
 
                 self.0.insert(key, (Value::String(existing_value), expiry));
                 Err(Sacrilege::IncorrectUsage(Command::DECR))
@@ -185,7 +188,7 @@ impl Soul {
         let mut number_of_entries_that_exist = 0;
 
         for key in keys {
-            if self.0.get(&key).is_some() {
+            if self.0.contains_key(&key) {
                 number_of_entries_that_exist += 1;
             }
         }
@@ -281,9 +284,9 @@ impl Soul {
         match self.0.get(&key) {
             Some((Value::Hash(map), _)) => {
                 if map.get(&field).is_some() {
-                    return Ok(1);
+                    Ok(1)
                 } else {
-                    return Ok(0);
+                    Ok(0)
                 }
             }
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::HEXISTS)),
@@ -323,7 +326,7 @@ impl Soul {
 
                 vacant.insert((Value::List(list), None));
 
-                return Ok(len);
+                Ok(len)
             }
         }
     }
@@ -402,7 +405,7 @@ impl Soul {
 
                 vacant.insert((Value::List(list), None));
 
-                return Ok(len);
+                Ok(len)
             }
         }
     }
@@ -476,11 +479,11 @@ impl Soul {
                 let list_len = list.len() as i32;
 
                 if starting_index < 0 {
-                    starting_index = list_len + starting_index;
+                    starting_index += list_len;
                 }
 
                 if ending_index < 0 {
-                    ending_index = list_len + ending_index;
+                    ending_index += list_len;
                 }
 
                 if starting_index < 0 {
@@ -492,8 +495,8 @@ impl Soul {
                 }
 
                 if ending_index - starting_index >= 0
-                    && starting_index < list_len as i32
-                    && ending_index < list_len as i32
+                    && starting_index < list_len
+                    && ending_index < list_len
                 {
                     Ok(Some(
                         list.range(starting_index as usize..(ending_index + 1) as usize)
@@ -515,7 +518,7 @@ impl Soul {
                 let list_len = list.len() as i32;
 
                 if index < 0 {
-                    index = list_len + index;
+                    index += list_len;
                 }
 
                 if index < 0 || index >= list_len {
@@ -525,7 +528,7 @@ impl Soul {
                 Ok(list.get(index as usize).cloned())
             }
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::LINDEX)),
-            None => return Ok(None),
+            None => Ok(None),
         }
     }
 
@@ -540,7 +543,7 @@ impl Soul {
                 let list_len = list.len() as i32;
 
                 if index < 0 {
-                    index = list_len + index;
+                    index += list_len;
                 }
 
                 if index < 0 || index >= list_len {
@@ -552,9 +555,9 @@ impl Soul {
                 Ok(())
             }
             Some(_) => {
-                return Err(Sacrilege::IncorrectUsage(Command::LSET));
+                Err(Sacrilege::IncorrectUsage(Command::LSET))
             }
-            None => return Err(Sacrilege::IncorrectUsage(Command::LSET)),
+            None => Err(Sacrilege::IncorrectUsage(Command::LSET)),
         }
     }
 
@@ -598,7 +601,7 @@ impl Soul {
                     list.retain(|existing_element| *existing_element != element);
                 }
 
-                return Ok(initial_len - list.len());
+                Ok(initial_len - list.len())
             }
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::LREM)),
             None => Ok(0),
@@ -929,7 +932,7 @@ impl<'a> Temple<'a> {
                             Ok(new_values_added) => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
-                                        token: token,
+                                        token,
                                         response: Response::Amount(new_values_added),
                                     }))
                                     .is_err()
@@ -940,7 +943,7 @@ impl<'a> Temple<'a> {
                             Err(sacrilege) => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
-                                        token: token,
+                                        token,
                                         response: Response::Error(sacrilege),
                                     }))
                                     .is_err()
@@ -1405,7 +1408,7 @@ impl<'a> Temple<'a> {
             }
         });
 
-        Temple { name: &name, tx }
+        Temple { name, tx }
     }
 
     pub fn get(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token) {

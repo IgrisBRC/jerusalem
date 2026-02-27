@@ -21,16 +21,14 @@ pub fn decr(
 
     if let Some(key) = terms_iter.next() {
         temple.decr(key, tx, token);
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::DECR)),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked");
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::DECR)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 
     Ok(())

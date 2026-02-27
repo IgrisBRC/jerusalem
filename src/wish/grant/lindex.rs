@@ -21,27 +21,23 @@ pub fn lindex(
     if let (Some(key), Some(index)) = (terms_iter.next(), terms_iter.next()) {
         if let Some(index) = bytes_to_i32(&index) {
             temple.lindex(tx, key, index, token);
-        } else {
-            if tx
-                .send(Decree::Deliver(Gift {
-                    token,
-                    response: Response::Error(Sacrilege::IncorrectUsage(Command::LINDEX)),
-                }))
-                .is_err()
-            {
-                eprintln!("angel panicked");
-            };
-        }
-    } else {
-        if tx
+        } else if tx
             .send(Decree::Deliver(Gift {
                 token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LINDEX)),
+                response: Response::Error(Sacrilege::IncorrectUsage(Command::LINDEX)),
             }))
             .is_err()
         {
             eprintln!("angel panicked");
-        };
+        }
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LINDEX)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 
     Ok(())

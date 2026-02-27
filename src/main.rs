@@ -54,11 +54,10 @@ fn main() {
                     if let Some(stream) = egress_map.get_mut(&gift.token) {
                         let token = gift.token;
 
-                        if let Err(_) = egress::egress(stream, gift) {
-                            if egress_tx.send(token).is_err() {
+                        if egress::egress(stream, gift).is_err()
+                            && egress_tx.send(token).is_err() {
                                 eprintln!("angel panicked");
                             };
-                        }
                     }
                 }
                 Err(_) => break,
@@ -70,23 +69,21 @@ fn main() {
         while let Ok((token, pilgrim)) = ingress_rx.try_recv() {
             ingress_map.insert(token, pilgrim);
 
-            if let Some(p) = ingress_map.get_mut(&token) {
-                if poll.registry().reregister(
+            if let Some(p) = ingress_map.get_mut(&token)
+                && poll.registry().reregister(
                     &mut p.stream,
                     token,
                     Interest::READABLE | Interest::WRITABLE,
                 ).is_err() {
                     eprintln!("reregister() failed");
                 }
-            }
         }
 
         while let Ok(token) = egress_rx.try_recv() {
-            if let Some(mut pilgrim) = ingress_map.remove(&token) {
-                if poll.registry().deregister(&mut pilgrim.stream).is_err() {
+            if let Some(mut pilgrim) = ingress_map.remove(&token)
+                && poll.registry().deregister(&mut pilgrim.stream).is_err() {
                     eprintln!("deregister() failed")
                 }
-            }
         }
 
         if poll
@@ -149,7 +146,6 @@ fn main() {
                 Token(token_number) => {
                     if let Some(mut pilgrim) = ingress_map.remove(&Token(token_number)) {
                         let sanctum = temple.sanctify();
-                        let token_number = token_number;
                         let tx = ingress_tx.clone();
 
                         ingress_choir.sing(move || {

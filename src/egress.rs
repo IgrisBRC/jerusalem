@@ -1,10 +1,7 @@
 use mio::net::TcpStream;
 use std::io::Write;
 
-use crate::{
-    temple::Value,
-    wish::{InfoType, Response, Sin, grant::Gift},
-};
+use crate::wish::{InfoType, Response, Sin, grant::Gift};
 
 pub fn egress(stream: &mut TcpStream, gift: Gift) -> Result<(), Sin> {
     let mut response: Vec<u8> = Vec::new();
