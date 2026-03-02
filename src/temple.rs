@@ -15,9 +15,13 @@ pub enum Value {
     List(VecDeque<Vec<u8>>),
     Hash(HashMap<Vec<u8>, Vec<u8>>),
     Set(HashSet<Vec<u8>>),
+    EventMap(HashMap<Vec<u8>, HashSet<Token>>),
+    ClientMap(HashMap<Token, HashSet<Vec<u8>>>),
 }
 
 pub struct Soul(HashMap<Vec<u8>, (Value, Option<SystemTime>)>);
+pub struct EventMap(HashMap<Token, HashSet<Vec<u8>>>);
+pub struct ClientMap(HashMap<Vec<u8>, HashSet<Token>>);
 
 impl Default for Soul {
     fn default() -> Self {
@@ -65,6 +69,8 @@ impl Soul {
     pub fn incr(&mut self, key: Vec<u8>, now: SystemTime) -> Result<i64, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
+                let mut itoa_buf = itoa::Buffer::new();
+
                 let Ok(mut number) = bytes_to_i64(value) else {
                     return Err(Sacrilege::IncorrectUsage(Command::INCR));
                 };
@@ -72,7 +78,7 @@ impl Soul {
                 number += 1;
 
                 value.clear();
-                value.extend_from_slice(number.to_string().as_bytes());
+                value.extend_from_slice(itoa_buf.format(number).as_bytes());
 
                 Ok(number)
             }
@@ -87,6 +93,8 @@ impl Soul {
     pub fn decr(&mut self, key: Vec<u8>, now: SystemTime) -> Result<i64, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
+                let mut itoa_buf = itoa::Buffer::new();
+
                 let Ok(mut number) = bytes_to_i64(value) else {
                     return Err(Sacrilege::IncorrectUsage(Command::DECR));
                 };
@@ -94,7 +102,7 @@ impl Soul {
                 number -= 1;
 
                 value.clear();
-                value.extend_from_slice(number.to_string().as_bytes());
+                value.extend_from_slice(itoa_buf.format(number).as_bytes());
 
                 Ok(number)
             }
@@ -615,6 +623,31 @@ impl Soul {
         }
     }
 
+    pub fn ttl(&mut self, key: Vec<u8>, now: SystemTime) -> i64 {
+        match self.0.entry(key) {
+            Entry::Occupied(mut occupied) => {
+                let (_, existing_expiry) = occupied.get_mut();
+
+                if let Some(expiry) = existing_expiry {
+                    if *expiry < now {
+                        occupied.remove();
+                        return -2;
+                    } else {
+                        let Ok(duration) = (*expiry).duration_since(now) else {
+                            occupied.remove();
+                            return -2;
+                        };
+
+                        duration.as_secs() as i64
+                    }
+                } else {
+                    return -1;
+                }
+            }
+            Entry::Vacant(_) => -2,
+        }
+    }
+
     fn get_valid_value(&self, key: &Vec<u8>, now: SystemTime) -> Option<&Value> {
         match self.0.get(key) {
             Some((value, Some(expiry))) => {
@@ -654,6 +687,78 @@ impl Soul {
             }
             Some((value, None)) => Some(value),
             None => None,
+        }
+    }
+}
+
+impl Default for ClientMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ClientMap {
+    pub fn new() -> Self {
+        ClientMap(HashMap::new())
+    }
+
+    pub fn subscribe(&mut self, token: Token, events: Vec<Vec<u8>>) {
+        for event in events {
+            match self.0.get_mut(&event) {
+                Some(set) => {
+                    set.insert(token);
+                }
+                None => {
+                    let mut set = HashSet::new();
+                    set.insert(token);
+
+                    self.0.insert(event, set);
+                }
+            }
+        }
+    }
+
+    pub fn publish(&self, event: Vec<u8>) -> Vec<Token> {
+        match self.0.get(&event) {
+            Some(clients) => clients.iter().cloned().collect(),
+            None => Vec::new(),
+        }
+    }
+}
+
+impl Default for EventMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl EventMap {
+    pub fn new() -> Self {
+        EventMap(HashMap::new())
+    }
+
+    pub fn subscribe(&mut self, token: Token, events: Vec<Vec<u8>>) -> usize {
+        match self.0.get_mut(&token) {
+            Some(set) => {
+                for event in events {
+                    set.insert(event);
+                }
+
+                set.len()
+            }
+            None => {
+                let mut set = HashSet::new();
+
+                for event in events {
+                    set.insert(event);
+                }
+
+                let set_len = set.len();
+
+                self.0.insert(token, set);
+
+                set_len
+            }
         }
     }
 }
@@ -833,6 +938,23 @@ pub enum Wish {
         tx: Sender<Decree>,
         time: SystemTime,
     },
+    Ttl {
+        key: Vec<u8>,
+        token: Token,
+        tx: Sender<Decree>,
+        time: SystemTime,
+    },
+    Subscribe {
+        events: Vec<Vec<u8>>,
+        token: Token,
+        tx: Sender<Decree>,
+    },
+    Publish {
+        event: Vec<u8>,
+        message: Vec<u8>,
+        token: Token,
+        tx: Sender<Decree>,
+    },
 }
 
 #[derive(Clone)]
@@ -847,6 +969,8 @@ impl<'a> Temple<'a> {
 
         std::thread::spawn(move || {
             let mut soul = Soul::new();
+            let mut client_map = ClientMap::new();
+            let mut event_map = EventMap::new();
 
             loop {
                 match rx.recv() {
@@ -1574,6 +1698,57 @@ impl<'a> Temple<'a> {
                                 eprintln!("angel panicked");
                             }
                         }
+                        Wish::Ttl {
+                            key,
+                            token,
+                            tx,
+                            time,
+                        } => {
+                            if tx
+                                .send(Decree::Deliver(Gift {
+                                    token,
+                                    response: Response::Number(soul.ttl(key, time)),
+                                }))
+                                .is_err()
+                            {
+                                eprintln!("angel panicked");
+                            }
+                        }
+                        Wish::Subscribe { events, token, tx } => {
+                            let number_of_subscribed_channels =
+                                event_map.subscribe(token, events.clone());
+                            client_map.subscribe(token, events.clone());
+
+                            for event in events {
+                                if tx
+                                    .send(Decree::Deliver(Gift {
+                                        token,
+                                        response: Response::NumberOfSubscribedChannels(
+                                            event,
+                                            number_of_subscribed_channels,
+                                        ),
+                                    }))
+                                    .is_err()
+                                {
+                                    eprintln!("angel panicked");
+                                }
+                            }
+                        }
+                        Wish::Publish {
+                            event,
+                            message,
+                            token,
+                            tx,
+                        } => {
+                            let clients = client_map.publish(event.clone());
+
+                            if tx
+                                .send(Decree::Broadcast(token, event, message, clients))
+                                .is_err()
+                            {
+                                eprintln!("angel panicked");
+                            }
+                        }
                     },
                     Err(e) => {
                         eprintln!("GodThread: {}", e);
@@ -2101,6 +2276,42 @@ impl<'a> Temple<'a> {
                 token,
                 tx,
                 time,
+            })
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+    }
+
+    pub fn ttl(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
+        if self
+            .tx
+            .send(Wish::Ttl {
+                key,
+                token,
+                tx,
+                time,
+            })
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+    }
+
+    pub fn subscribe(&self, tx: Sender<Decree>, events: Vec<Vec<u8>>, token: Token) {
+        if self.tx.send(Wish::Subscribe { events, token, tx }).is_err() {
+            eprintln!("angel panicked");
+        }
+    }
+
+    pub fn publish(&self, tx: Sender<Decree>, event: Vec<u8>, message: Vec<u8>, token: Token) {
+        if self
+            .tx
+            .send(Wish::Publish {
+                event,
+                message,
+                token,
+                tx,
             })
             .is_err()
         {

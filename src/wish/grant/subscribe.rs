@@ -1,0 +1,38 @@
+use mio::Token;
+
+use crate::{
+    temple::Temple,
+    wish::{
+        Command, Response, Sacrilege, Sin,
+        grant::{Decree, Gift},
+    },
+};
+use std::{sync::mpsc::Sender, time::SystemTime};
+
+pub fn subscribe(
+    terms: Vec<Vec<u8>>,
+    temple: &mut Temple,
+    tx: Sender<Decree>,
+    token: Token,
+) -> Result<(), Sin> {
+    if terms.len() < 2 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::SUBSCRIBE)),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        };
+
+        return Ok(());
+    }
+
+    let mut terms_iter = terms.into_iter();
+    terms_iter.next();
+
+    temple.subscribe(tx, terms_iter.collect(), token);
+
+    Ok(())
+}

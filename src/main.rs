@@ -1,5 +1,8 @@
+#[global_allocator]
+static ALLOC: jemallocator::Jemalloc = jemallocator::Jemalloc;
+
 use std::collections::HashMap;
-use std::io::ErrorKind;
+use std::io::{ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream};
 
 use jerusalem::choir::Choir;
@@ -44,6 +47,8 @@ fn main() {
 
     std::thread::spawn(move || {
         let mut egress_map: HashMap<Token, mio::net::TcpStream> = HashMap::new();
+        let mut buffer = Vec::with_capacity(2100);
+        let mut itoa_buf = itoa::Buffer::new();
 
         loop {
             match pilgrim_rx.recv() {
@@ -54,10 +59,40 @@ fn main() {
                     if let Some(stream) = egress_map.get_mut(&gift.token) {
                         let token = gift.token;
 
-                        if egress::egress(stream, gift).is_err()
-                            && egress_tx.send(token).is_err() {
-                                eprintln!("angel panicked");
-                            };
+                        if egress::egress(stream, gift, &mut buffer).is_err() && egress_tx.send(token).is_err() {
+                            eprintln!("angel panicked");
+                        };
+                    }
+                }
+                Ok(Decree::Broadcast(token, mut event, mut message, clients)) => {
+                    let clients_len = clients.len();
+
+                    let mut response = b"*3\r\n$7\r\nmessage\r\n$".to_vec();
+                    response.extend_from_slice(itoa_buf.format(event.len()).as_bytes());
+                    response.extend_from_slice(b"\r\n");
+                    response.append(&mut event);
+                    response.extend_from_slice(b"\r\n$");
+                    response.extend_from_slice(itoa_buf.format(message.len()).as_bytes());
+                    response.extend_from_slice(b"\r\n");
+                    response.append(&mut message);
+                    response.extend_from_slice(b"\r\n");
+
+                    for client in clients {
+                        if let Some(stream) = egress_map.get_mut(&client) {
+                            if stream.write_all(&response).is_err() {
+                                eprintln!("writing to stream failed for client");
+                            }
+                        }
+                    }
+
+                    if let Some(publisher_stream) = egress_map.get_mut(&token) {
+                        let mut response = b":".to_vec();
+                        response.extend_from_slice(itoa_buf.format(clients_len).as_bytes());
+                        response.extend_from_slice(b"\r\n");
+
+                        if publisher_stream.write_all(&response).is_err() {
+                            eprintln!("writing to stream failed for publisher");
+                        }
                     }
                 }
                 Err(_) => break,
@@ -70,20 +105,25 @@ fn main() {
             ingress_map.insert(token, pilgrim);
 
             if let Some(p) = ingress_map.get_mut(&token)
-                && poll.registry().reregister(
-                    &mut p.stream,
-                    token,
-                    Interest::READABLE | Interest::WRITABLE,
-                ).is_err() {
-                    eprintln!("reregister() failed");
-                }
+                && poll
+                    .registry()
+                    .reregister(
+                        &mut p.stream,
+                        token,
+                        Interest::READABLE | Interest::WRITABLE,
+                    )
+                    .is_err()
+            {
+                // eprintln!("reregister() failed");
+            }
         }
 
         while let Ok(token) = egress_rx.try_recv() {
             if let Some(mut pilgrim) = ingress_map.remove(&token)
-                && poll.registry().deregister(&mut pilgrim.stream).is_err() {
-                    eprintln!("deregister() failed")
-                }
+                && poll.registry().deregister(&mut pilgrim.stream).is_err()
+            {
+                eprintln!("deregister() failed")
+            }
         }
 
         if poll

@@ -27,6 +27,10 @@ Note: Every command is supposed to work just like how it would in Redis.
 | **HLEN** | Hash | `HLEN key` | Retrieves the hashmap's size |
 | **EXISTS** | Generic | `EXISTS key [key...]` | Checks for the presence of keys |
 | **DEL** | Generic | `DEL key [key...]` | Removes keys of any data type |
+| **TTL** | Generic | `TTL key` | Returns the expiry of the entry at key |
+| **EXPIRE** | Generic | `EXPIRE key expiry` | Sets the expiry of the entry at key |
+| **SUBSCRIBE** | Broadcast | `SUBSCRIBE event` | Subscribes you to event |
+| **PUBLISH** | Broadcast | `PUBLISH event message` | Sends a message to all the clients subscribed to event |
 | **PING** | System | `PING` | Returns `PONG` |
 
 ### A Note on PING
@@ -46,11 +50,7 @@ https://crates.io/crates/mio
 
 ## My order of operations for this project
 
-Sets, and expiry controls.
-
 Make the error messages.
-
-Make relevant optimizations.
 
 ## Maybe plans
 
@@ -58,15 +58,7 @@ Sharding
 
 ## todo
 
-Support sets and expiry.
-
 Match through all the possible errors in egress.rs and give appropriate error message.
 
-Slay utf8 monster throughout the codebase.
-
 Restrict the number of arguments accepted for all the commands.
-
-Slay the drain monster in wish.rs.
-
-This is a maybe cuz it's hard, but slay the mutex monster in choir.rs.
 

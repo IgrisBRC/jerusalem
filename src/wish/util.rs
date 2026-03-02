@@ -108,15 +108,3 @@ pub fn bytes_to_usize(bytes: &[u8]) -> Result<usize, Sin> {
 
     Ok(result)
 }
-
-// pub fn bytes_to_uppercase(bytes: &mut [u8]) -> Result<(), Sin> {
-//     for byte in bytes {
-//         if byte.is_ascii_alphabetic() {
-//             byte.make_ascii_uppercase();
-//         } else {
-//             return Err(Sin::ParseError)
-//         }
-//     }
-//
-//     Ok(())
-// }

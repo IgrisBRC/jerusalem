@@ -15,6 +15,8 @@ pub enum Phase {
 
 pub struct Virtue {
     backlog: Vec<u8>,
+    read_idx: usize,  
+    write_idx: usize, 
     terms: Vec<Vec<u8>>,
     expected_terms: usize,
     phase: Phase,
@@ -23,10 +25,21 @@ pub struct Virtue {
 impl Virtue {
     fn new() -> Self {
         Self {
-            backlog: Vec::with_capacity(2048),
+            backlog: vec![0; 4096],
+            read_idx: 0,
+            write_idx: 0,
             terms: Vec::new(),
             expected_terms: 0,
             phase: Phase::Idle,
+        }
+    }
+
+    fn compact(&mut self) {
+        if self.read_idx > 0 {
+            let len = self.write_idx - self.read_idx;
+            self.backlog.copy_within(self.read_idx..self.write_idx, 0);
+            self.read_idx = 0;
+            self.write_idx = len;
         }
     }
 }
@@ -57,6 +70,9 @@ pub enum Command {
     LSET,
     LREM,
     EXPIRE,
+    TTL,
+    SUBSCRIBE,
+    PUBLISH
 }
 
 pub enum Sacrilege {
@@ -78,6 +94,7 @@ pub enum Response {
     Amount(u32),
     Number(i64),
     Length(usize),
+    NumberOfSubscribedChannels(Vec<u8>, usize)
 }
 
 pub struct Pilgrim {
@@ -100,97 +117,72 @@ pub mod util;
 pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(), Sin> {
     let virtue = pilgrim.virtue.get_or_insert_with(Virtue::new);
 
-    let mut buffer = [0; 1024];
+    if virtue.write_idx > virtue.backlog.len() - 1024 {
+        virtue.compact();
+    }
 
-    loop {
-        match pilgrim.stream.read(&mut buffer) {
-            Ok(0) => return Err(Sin::Disconnected),
-            Ok(bytes_read) => {
-                virtue.backlog.extend_from_slice(&buffer[..bytes_read]);
-            }
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
-            Err(_) => return Err(Sin::Disconnected),
-        }
+    match pilgrim.stream.read(&mut virtue.backlog[virtue.write_idx..]) {
+        Ok(0) => return Err(Sin::Disconnected),
+        Ok(n) => virtue.write_idx += n,
+        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return Ok(()),
+        Err(_) => return Err(Sin::Disconnected),
     }
 
     loop {
-        if virtue.backlog.is_empty() {
+        let active_window = &virtue.backlog[virtue.read_idx..virtue.write_idx];
+        if active_window.is_empty() {
             break;
         }
 
         match virtue.phase {
             Phase::Idle => {
-                if virtue.backlog[0] == b'*' {
+                if active_window[0] == b'*' {
                     virtue.phase = Phase::AwaitingTermCount;
+                    virtue.read_idx += 1; 
+                } else {
+                    return Err(Sin::Blasphemy);
                 }
-
-                virtue.backlog.drain(..1);
             }
             Phase::AwaitingTermCount => {
-                if let Some(index) = util::find_crlf(&virtue.backlog) {
-                    virtue.expected_terms = bytes_to_usize(&virtue.backlog[..index])?;
-
-                    // virtue.expected_terms = std::str::from_utf8(&virtue.backlog[..index])
-                    //     .map_err(|_| Sin::Utf8Error)?
-                    //     .parse()
-                    //     .map_err(|_| Sin::ParseError)?;
-
-                    if virtue.expected_terms == 0 {
-                        return Err(Sin::Blasphemy);
-                    }
-
+                if let Some(index) = util::find_crlf(active_window) {
+                    virtue.expected_terms = bytes_to_usize(&active_window[..index])?;
                     virtue.phase = Phase::GraspingMarker;
-                    virtue.backlog.drain(..index + 2);
+                    virtue.read_idx += index + 2;
                 } else {
                     break;
                 }
             }
             Phase::GraspingMarker => {
-                if virtue.backlog[0] == b'$' {
+                if active_window[0] == b'$' {
                     virtue.phase = Phase::AwaitingBulkStringLength;
-                } else {
-                    return Err(Sin::Blasphemy);
-                }
-
-                virtue.backlog.drain(..1);
-            }
-            Phase::AwaitingBulkStringLength => {
-                if let Some(index) = util::find_crlf(&virtue.backlog) {
-                    let bulk_string_length = bytes_to_usize(&virtue.backlog[..index])?;
-
-                    // let bulk_string_length = std::str::from_utf8(&virtue.backlog[..index])
-                    //     .map_err(|_| Sin::Utf8Error)?
-                    //     .parse()
-                    //     .map_err(|_| Sin::ParseError)?;
-
-                    virtue.phase = Phase::AwaitingBulkString(bulk_string_length);
-                    virtue.backlog.drain(..index + 2);
+                    virtue.read_idx += 1;
                 } else {
                     break;
                 }
             }
-            Phase::AwaitingBulkString(characters_remaining) => {
-                if virtue.backlog.len() >= characters_remaining + 2 {
-                    if virtue.backlog[characters_remaining] != b'\r'
-                        || virtue.backlog[characters_remaining + 1] != b'\n'
-                    {
+            Phase::AwaitingBulkStringLength => {
+                if let Some(index) = util::find_crlf(active_window) {
+                    let len = bytes_to_usize(&active_window[..index])?;
+                    virtue.phase = Phase::AwaitingBulkString(len);
+                    virtue.read_idx += index + 2;
+                } else {
+                    break;
+                }
+            }
+            Phase::AwaitingBulkString(len) => {
+                if active_window.len() >= len + 2 {
+                    if active_window[len] != b'\r' || active_window[len + 1] != b'\n' {
                         return Err(Sin::Blasphemy);
                     }
 
-                    let term = &virtue.backlog[..characters_remaining];
-
-                    virtue.terms.push(term.into());
-
-                    virtue.backlog.drain(..characters_remaining + 2);
+                    virtue.terms.push(active_window[..len].to_vec());
+                    virtue.read_idx += len + 2;
                     virtue.phase = Phase::GraspingMarker;
 
                     if virtue.terms.len() == virtue.expected_terms {
-                        let terms_to_grant = std::mem::take(&mut virtue.terms);
-
-                        grant::grant(terms_to_grant, &mut temple, pilgrim.tx.clone(), token)?;
-
+                        let terms = std::mem::take(&mut virtue.terms);
+                        grant::grant(terms, &mut temple, pilgrim.tx.clone(), token)?;
                         virtue.phase = Phase::Idle;
-                        virtue.expected_terms = 0;
                     }
                 } else {
                     break;
@@ -198,6 +190,5 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
             }
         }
     }
-
     Ok(())
 }

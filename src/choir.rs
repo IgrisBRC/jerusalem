@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, mpsc::Receiver, mpsc::Sender};
+use crossbeam_channel::{Receiver, unbounded, Sender};
 
 type Song = Box<dyn FnOnce() + Send + 'static>;
 
@@ -7,19 +7,10 @@ struct Angel {
 }
 
 impl Angel {
-    fn new(rx: Arc<Mutex<Receiver<Song>>>) -> Self {
+    fn new(rx: Receiver<Song>) -> Self {
         Angel {
             thread: Some(std::thread::spawn(move || {
-                loop {
-                    let song = {
-                        let Ok(guard) = rx.lock() else {
-                            break;
-                        };
-                        let Ok(song) = guard.recv() else {
-                            break;
-                        };
-                        song
-                    };
+                while let Ok(song) = rx.recv() {
                     song();
                 }
             })),
@@ -35,11 +26,10 @@ pub struct Choir {
 impl Choir {
     pub fn new(capacity: usize) -> Self {
         let mut angels = Vec::with_capacity(capacity);
-        let (tx, rx) = std::sync::mpsc::channel();
-        let rx = Arc::new(Mutex::new(rx));
+        let (tx, rx) = unbounded();
 
         for _ in 0..capacity {
-            angels.push(Angel::new(Arc::clone(&rx)));
+            angels.push(Angel::new(rx.clone()));
         }
 
         Choir {
@@ -49,8 +39,8 @@ impl Choir {
     }
 
     pub fn sing<F>(&self, song: F)
-    where 
-    F: FnOnce() + Send + 'static
+    where
+        F: FnOnce() + Send + 'static,
     {
         if let Some(tx) = &self.tx {
             tx.send(Box::new(song)).unwrap();
