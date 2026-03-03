@@ -53,8 +53,11 @@ Note: If you want to handle more than 508 concurrent connections, you may have t
 ## Crates used
 
 https://crates.io/crates/mio
+
 https://crates.io/crates/crossbeam
+
 https://crates.io/crates/jemallocator
+
 https://crates.io/crates/itoa
 
 ## My order of operations for this project
