@@ -778,6 +778,27 @@ impl Soul {
         }
     }
 
+    pub fn smembers(
+        &mut self,
+        key: Vec<u8>,
+        now: SystemTime,
+    ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
+
+        match self.get_valid_value(&key, now) {
+            Some(Value::Set(set)) => {
+                let mut result = Vec::with_capacity(set.len());
+
+                for value in set {
+                    result.push(Some(value.clone()));
+                }
+
+                Ok(Some(result))
+            }
+            Some(_) => Err(Sacrilege::IncorrectUsage(Command::SMEMBERS)),
+            None => Ok(None),
+        }
+    }
+
     fn get_valid_value(&self, key: &Vec<u8>, now: SystemTime) -> Option<&Value> {
         match self.0.get(key) {
             Some((value, Some(expiry))) => {
@@ -1118,6 +1139,12 @@ pub enum Wish {
         time: SystemTime,
     },
     Hgetall {
+        key: Vec<u8>,
+        token: Token,
+        tx: Sender<Decree>,
+        time: SystemTime,
+    },
+    Smembers {
         key: Vec<u8>,
         token: Token,
         tx: Sender<Decree>,
@@ -2071,6 +2098,35 @@ impl<'a> Temple<'a> {
                                 }
                             }
                         },
+                        Wish::Smembers {
+                            key,
+                            token,
+                            tx,
+                            time,
+                        } => match soul.smembers(key, time) {
+                            Ok(bulk_string_array) => {
+                                if tx
+                                    .send(Decree::Deliver(Gift {
+                                        token,
+                                        response: Response::BulkStringArray(bulk_string_array),
+                                    }))
+                                    .is_err()
+                                {
+                                    eprintln!("angel panicked");
+                                }
+                            }
+                            Err(sacrilege) => {
+                                if tx
+                                    .send(Decree::Deliver(Gift {
+                                        token,
+                                        response: Response::Error(sacrilege),
+                                    }))
+                                    .is_err()
+                                {
+                                    eprintln!("angel panicked");
+                                }
+                            }
+                        },
                     },
                     Err(e) => {
                         eprintln!("GodThread: {}", e);
@@ -2749,6 +2805,21 @@ impl<'a> Temple<'a> {
         if self
             .tx
             .send(Wish::Hgetall {
+                key,
+                token,
+                tx,
+                time,
+            })
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+    }
+
+    pub fn smembers(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+        if self
+            .tx
+            .send(Wish::Smembers {
                 key,
                 token,
                 tx,

@@ -29,7 +29,8 @@ Note: Every command is supposed to work just like how it would in Redis.
 | **HGETALL** | Hash | `HGETALL key` | Returns all field value pairs in a hashmap at key |
 | **SADD** | Set | `SADD key val [val ...]` | Addes value to a (new) set at key |
 | **SREM** | Set | `SREM key val [val ...]` | Removes value from a set at key |
-| **SISMEMBER** | Set | `SISMEMBER key val` | Checks if value is in a set situated at key |
+| **SISMEMBER** | Set | `SISMEMBER key val` | Checks if value is in a set at key |
+| **SMEMBERS** | Set | `SMEMBERS key` | Returns all the values in a set at key |
 | **EXISTS** | Generic | `EXISTS key [key...]` | Checks for the presence of keys |
 | **DEL** | Generic | `DEL key [key...]` | Removes keys of any data type |
 | **TTL** | Generic | `TTL key` | Returns the expiry of the entry at key|

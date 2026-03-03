@@ -78,7 +78,8 @@ pub enum Command {
     SADD,
     SREM,
     SISMEMBER,
-    HGETALL
+    HGETALL,
+    SMEMBERS
 }
 
 pub enum Sacrilege {

@@ -16,6 +16,7 @@ mod get;
 mod hdel;
 mod hexists;
 mod hget;
+mod hgetall;
 mod hlen;
 mod hmget;
 mod hset;
@@ -40,7 +41,7 @@ mod srem;
 mod strlen;
 mod subscribe;
 mod ttl;
-mod hgetall;
+mod smembers;
 
 pub struct Gift {
     pub token: mio::Token,
@@ -129,6 +130,8 @@ pub fn grant(
         sismember::sismember(terms, temple, tx, token)?
     } else if cmd.eq_ignore_ascii_case(b"HGETALL") {
         hgetall::hgetall(terms, temple, tx, token)?
+    } else if cmd.eq_ignore_ascii_case(b"SMEMBERS") {
+        smembers::smembers(terms, temple, tx, token)?
     } else if cmd.eq_ignore_ascii_case(b"COMMAND") || cmd.eq_ignore_ascii_case(b"CONFIG") {
         if tx
             .send(Decree::Deliver(Gift {
