@@ -9,12 +9,7 @@ use crate::{
 };
 use std::{sync::mpsc::Sender, time::SystemTime};
 
-pub fn del(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn del(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
     if terms.len() < 2 {
         if tx
             .send(Decree::Deliver(Gift {
@@ -26,13 +21,11 @@ pub fn del(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return;
     }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
     temple.del(terms_iter.collect(), tx, token, SystemTime::now());
-
-    Ok(())
 }

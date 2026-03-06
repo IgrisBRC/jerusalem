@@ -55,86 +55,81 @@ pub enum Decree {
     Broadcast(Token, Vec<u8>, Vec<u8>, Vec<Token>),
 }
 
-pub fn grant(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn grant(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
     let cmd = &terms[0];
 
     if cmd.eq_ignore_ascii_case(b"SET") {
-        set::set(terms, temple, tx, token)?
+        set::set(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"GET") {
-        get::get(terms, temple, tx, token)?
+        get::get(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"PING") {
-        ping::ping(tx, token)?
+        ping::ping(terms, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"DEL") {
-        del::del(terms, temple, tx, token)?
+        del::del(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"EXISTS") {
-        exists::exists(terms, temple, tx, token)?
+        exists::exists(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"INCR") {
-        incr::incr(terms, temple, tx, token)?
+        incr::incr(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"DECR") {
-        decr::decr(terms, temple, tx, token)?
+        decr::decr(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"APPEND") {
-        append::append(terms, temple, tx, token)?
+        append::append(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HSET") {
-        hset::hset(terms, temple, tx, token)?
+        hset::hset(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HGET") {
-        hget::hget(terms, temple, tx, token)?
+        hget::hget(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HMGET") {
-        hmget::hmget(terms, temple, tx, token)?
+        hmget::hmget(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"STRLEN") {
-        strlen::strlen(terms, temple, tx, token)?
+        strlen::strlen(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HDEL") {
-        hdel::hdel(terms, temple, tx, token)?
+        hdel::hdel(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HEXISTS") {
-        hexists::hexists(terms, temple, tx, token)?
+        hexists::hexists(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HLEN") {
-        hlen::hlen(terms, temple, tx, token)?
+        hlen::hlen(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LPUSH") {
-        lpush::lpush(terms, temple, tx, token)?
+        lpush::lpush(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LPOP") {
-        lpop::lpop(terms, temple, tx, token)?
+        lpop::lpop(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"RPUSH") {
-        rpush::rpush(terms, temple, tx, token)?
+        rpush::rpush(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"RPOP") {
-        rpop::rpop(terms, temple, tx, token)?
+        rpop::rpop(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LLEN") {
-        llen::llen(terms, temple, tx, token)?
+        llen::llen(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LRANGE") {
-        lrange::lrange(terms, temple, tx, token)?
+        lrange::lrange(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LINDEX") {
-        lindex::lindex(terms, temple, tx, token)?
+        lindex::lindex(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LSET") {
-        lset::lset(terms, temple, tx, token)?
+        lset::lset(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"LREM") {
-        lrem::lrem(terms, temple, tx, token)?
+        lrem::lrem(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"EXPIRE") {
-        expire::expire(terms, temple, tx, token)?
+        expire::expire(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"TTL") {
-        ttl::ttl(terms, temple, tx, token)?
+        ttl::ttl(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"SUBSCRIBE") {
-        subscribe::subscribe(terms, temple, tx, token)?
+        subscribe::subscribe(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"PUBLISH") {
-        publish::publish(terms, temple, tx, token)?
+        publish::publish(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"MSET") {
-        mset::mset(terms, temple, tx, token)?
+        mset::mset(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"MGET") {
-        mget::mget(terms, temple, tx, token)?
+        mget::mget(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"SADD") {
-        sadd::sadd(terms, temple, tx, token)?
+        sadd::sadd(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"SREM") {
-        srem::srem(terms, temple, tx, token)?
+        srem::srem(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"SISMEMBER") {
-        sismember::sismember(terms, temple, tx, token)?
+        sismember::sismember(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"HGETALL") {
-        hgetall::hgetall(terms, temple, tx, token)?
+        hgetall::hgetall(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"SMEMBERS") {
-        smembers::smembers(terms, temple, tx, token)?
+        smembers::smembers(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"UNSUBSCRIBE") {
-        unsubscribe::unsubscribe(terms, temple, tx, token)?
+        unsubscribe::unsubscribe(terms, temple, tx, token);
     } else if cmd.eq_ignore_ascii_case(b"COMMAND") || cmd.eq_ignore_ascii_case(b"CONFIG") {
         if tx
             .send(Decree::Deliver(Gift {
@@ -145,7 +140,6 @@ pub fn grant(
         {
             eprintln!("angel panicked");
         };
-        return Ok(());
     } else {
         if tx
             .send(Decree::Deliver(Gift {
@@ -156,8 +150,5 @@ pub fn grant(
         {
             eprintln!("angel panicked");
         };
-        return Ok(());
     }
-
-    Ok(())
 }

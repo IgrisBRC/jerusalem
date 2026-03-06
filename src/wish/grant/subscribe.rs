@@ -14,7 +14,7 @@ pub fn subscribe(
     temple: &mut Temple,
     tx: Sender<Decree>,
     token: Token,
-) -> Result<(), Sin> {
+)  {
     if terms.len() < 2 {
         if tx
             .send(Decree::Deliver(Gift {
@@ -26,7 +26,7 @@ pub fn subscribe(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return ;
     }
 
     let mut terms_iter = terms.into_iter();
@@ -34,5 +34,5 @@ pub fn subscribe(
 
     temple.subscribe(tx, terms_iter.collect(), token);
 
-    Ok(())
+    
 }

@@ -10,12 +10,21 @@ use crate::{
     },
 };
 
-pub fn strlen(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn strlen(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
+    if terms.len() != 2 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::STRLEN)),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+
+        return;
+    }
+
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
@@ -30,6 +39,4 @@ pub fn strlen(
     {
         eprintln!("angel panicked");
     }
-
-    Ok(())
 }

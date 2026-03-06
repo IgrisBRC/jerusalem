@@ -45,6 +45,7 @@ impl Virtue {
 }
 
 pub enum Command {
+    PING,
     SET,
     GET,
     EX,
@@ -189,7 +190,9 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
 
                     if virtue.terms.len() == virtue.expected_terms {
                         let terms = std::mem::take(&mut virtue.terms);
-                        grant::grant(terms, &mut temple, pilgrim.tx.clone(), token)?;
+
+                        grant::grant(terms, &mut temple, pilgrim.tx.clone(), token);
+
                         virtue.phase = Phase::Idle;
                     }
                 } else {
@@ -198,5 +201,6 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
             }
         }
     }
+
     Ok(())
 }

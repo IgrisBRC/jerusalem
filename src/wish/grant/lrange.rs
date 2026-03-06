@@ -11,12 +11,21 @@ use crate::{
     },
 };
 
-pub fn lrange(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn lrange(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
+    if terms.len() != 4 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LRANGE)),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+
+        return;
+    }
+
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
@@ -33,13 +42,12 @@ pub fn lrange(
             eprintln!("angel panicked");
         }
 
-        return Ok(());
+        return;
     };
 
     let (Ok(starting_index), Ok(ending_index)) =
         (bytes_to_i32(&starting_index), bytes_to_i32(&ending_index))
     else {
-
         if tx
             .send(Decree::Deliver(Gift {
                 token,
@@ -50,10 +58,15 @@ pub fn lrange(
             eprintln!("angel panicked");
         }
 
-        return Ok(());
+        return;
     };
 
-    temple.lrange(tx, key, starting_index, ending_index, token, SystemTime::now());
-
-    Ok(())
+    temple.lrange(
+        tx,
+        key,
+        starting_index,
+        ending_index,
+        token,
+        SystemTime::now(),
+    );
 }

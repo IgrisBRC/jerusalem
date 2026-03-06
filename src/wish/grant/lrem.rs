@@ -1,4 +1,3 @@
-
 use std::{sync::mpsc::Sender, time::SystemTime};
 
 use mio::Token;
@@ -12,12 +11,21 @@ use crate::{
     },
 };
 
-pub fn lrem(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn lrem(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
+    if terms.len() != 4 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LREM)),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        };
+
+        return;
+    }
+
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
@@ -34,7 +42,7 @@ pub fn lrem(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return;
     };
 
     let Ok(index) = bytes_to_i32(&count) else {
@@ -48,10 +56,8 @@ pub fn lrem(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return;
     };
 
     temple.lrem(tx, key, index, element, token, SystemTime::now());
-
-    Ok(())
 }

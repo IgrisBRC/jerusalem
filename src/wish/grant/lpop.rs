@@ -11,12 +11,19 @@ use crate::{
     },
 };
 
-pub fn lpop(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
+    if terms.len() > 3 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LPOP)),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+    }
+
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
@@ -25,7 +32,7 @@ pub fn lpop(
             if let Ok(count) = bytes_to_usize(&count) {
                 temple.lpop_m(tx, key, count, token, SystemTime::now());
 
-                return Ok(());
+                return;
             }
 
             if tx
@@ -38,7 +45,7 @@ pub fn lpop(
                 eprintln!("angel panicked");
             };
 
-            return Ok(());
+            return;
         }
 
         temple.lpop(tx, key, token, SystemTime::now());
@@ -51,6 +58,4 @@ pub fn lpop(
     {
         eprintln!("angel panicked");
     }
-
-    Ok(())
 }

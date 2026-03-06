@@ -13,7 +13,7 @@ pub fn mget(
     temple: &mut Temple,
     tx: Sender<Decree>,
     token: Token,
-) -> Result<(), Sin> {
+)  {
     if terms.len() < 2 {
         if tx
             .send(Decree::Deliver(Gift {
@@ -25,7 +25,7 @@ pub fn mget(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return ;
     }
 
     let mut terms_iter = terms.into_iter();
@@ -33,5 +33,5 @@ pub fn mget(
 
     temple.mget(terms_iter, tx, token, SystemTime::now());
 
-    Ok(())
+    
 }

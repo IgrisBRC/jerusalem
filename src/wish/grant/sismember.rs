@@ -10,12 +10,23 @@ use crate::{
     },
 };
 
-pub fn sismember(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-) -> Result<(), Sin> {
+pub fn sismember(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
+    if terms.len() != 3 {
+        if tx
+            .send(Decree::Deliver(Gift {
+                token,
+                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(
+                    Command::SISMEMBER,
+                )),
+            }))
+            .is_err()
+        {
+            eprintln!("angel panicked");
+        }
+
+        return;
+    }
+
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
@@ -30,6 +41,4 @@ pub fn sismember(
     {
         eprintln!("angel panicked");
     }
-
-    Ok(())
 }

@@ -14,7 +14,7 @@ pub fn mset(
     temple: &mut Temple,
     tx: Sender<Decree>,
     token: Token,
-) -> Result<(), Sin> {
+)  {
     let terms_len = terms.len();
 
     if terms_len < 3 || terms_len % 2 == 0 {
@@ -27,7 +27,7 @@ pub fn mset(
         {
             eprintln!("angel panicked");
         };
-        return Ok(());
+        return ;
     }
 
     let mut terms_iter = terms.into_iter();
@@ -35,5 +35,5 @@ pub fn mset(
 
     temple.mset(terms_iter, tx, token);
 
-    Ok(())
+    
 }

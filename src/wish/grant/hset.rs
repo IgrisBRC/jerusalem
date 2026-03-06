@@ -14,7 +14,7 @@ pub fn hset(
     temple: &mut Temple,
     tx: Sender<Decree>,
     token: Token,
-) -> Result<(), Sin> {
+)  {
     let terms_len = terms.len();
 
     if terms_len < 4 || terms_len % 2 != 0 {
@@ -27,7 +27,7 @@ pub fn hset(
         {
             eprintln!("angel panicked");
         };
-        return Ok(());
+        return ;
     }
 
     let mut terms_iter = terms.into_iter();
@@ -43,5 +43,5 @@ pub fn hset(
         temple.hset(key, field_value_pairs, tx, token, SystemTime::now());
     }
 
-    Ok(())
+    
 }

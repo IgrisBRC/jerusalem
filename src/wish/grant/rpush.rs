@@ -13,7 +13,7 @@ pub fn rpush(
     temple: &mut Temple,
     tx: Sender<Decree>,
     token: Token,
-) -> Result<(), Sin> {
+)  {
     if terms.len() < 3 {
         if tx
             .send(Decree::Deliver(Gift {
@@ -25,7 +25,7 @@ pub fn rpush(
             eprintln!("angel panicked");
         };
 
-        return Ok(());
+        return ;
     }
 
     let mut terms_iter = terms.into_iter();
@@ -35,5 +35,5 @@ pub fn rpush(
         temple.rpush(tx, key, terms_iter.collect(), token, SystemTime::now());
     }
 
-    Ok(())
+    
 }
