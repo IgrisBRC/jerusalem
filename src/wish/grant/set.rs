@@ -3,7 +3,7 @@ use mio::Token;
 use crate::{
     temple::{Temple, Value},
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
         util::bytes_to_u64,
     },
@@ -72,35 +72,29 @@ pub fn set(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: 
                         tx,
                         token,
                     );
-
-                    return;
-                } else {
-                    if tx
-                        .send(Decree::Deliver(Gift {
-                            token,
-                            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(
-                                Command::SET,
-                            )),
-                        }))
-                        .is_err()
-                    {
-                        eprintln!("angel panicked")
-                    };
+                } else if tx
+                    .send(Decree::Deliver(Gift {
+                        token,
+                        response: Response::Error(Sacrilege::IncorrectNumberOfArguments(
+                            Command::SET,
+                        )),
+                    }))
+                    .is_err()
+                {
+                    eprintln!("angel panicked")
                 }
             }
             None => {
                 temple.set(key, (Value::String(value), None), tx, token);
             }
         }
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::SET)),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked")
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::SET)),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked")
     }
 }

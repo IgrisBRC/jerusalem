@@ -2,7 +2,7 @@ use mio::Token;
 
 use crate::{
     temple::Temple,
-    wish::{InfoType, Response, Sacrilege, Sin},
+    wish::{InfoType, Response, Sacrilege},
 };
 
 use std::sync::mpsc::Sender;
@@ -140,15 +140,13 @@ pub fn grant(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token
         {
             eprintln!("angel panicked");
         };
-    } else {
-        if tx
-            .send(Decree::Deliver(Gift {
-                token,
-                response: Response::Error(Sacrilege::UnknownCommand),
-            }))
-            .is_err()
-        {
-            eprintln!("angel panicked");
-        };
+    } else if tx
+        .send(Decree::Deliver(Gift {
+            token,
+            response: Response::Error(Sacrilege::UnknownCommand),
+        }))
+        .is_err()
+    {
+        eprintln!("angel panicked");
     }
 }

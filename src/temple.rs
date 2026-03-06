@@ -1,6 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashSet, VecDeque};
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::vec::IntoIter;
 use std::{collections::HashMap, time::SystemTime};
 
@@ -37,9 +37,9 @@ impl Soul {
 
     pub fn get(&mut self, key: Vec<u8>, now: SystemTime) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
-            Some(Value::String(value)) => return Ok(Some(value.clone())),
+            Some(Value::String(value)) => Ok(Some(value.clone())),
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::GET)),
-            None => return Ok(None),
+            None => Ok(None),
         }
     }
 
@@ -56,7 +56,7 @@ impl Soul {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
                 value.append(&mut incoming_value);
-                return Ok(value.len());
+                Ok(value.len())
             }
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::APPEND)),
             None => {
@@ -300,11 +300,11 @@ impl Soul {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
-                    if let Some(expiry) = expiry {
-                        if *expiry < now {
-                            occupied.remove();
-                            return Ok(None);
-                        }
+                    if let Some(expiry) = expiry
+                        && *expiry < now
+                    {
+                        occupied.remove();
+                        return Ok(None);
                     }
 
                     let element = list.pop_front();
@@ -331,11 +331,11 @@ impl Soul {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
-                    if let Some(expiry) = expiry {
-                        if *expiry < now {
-                            occupied.remove();
-                            return Ok(None);
-                        }
+                    if let Some(expiry) = expiry
+                        && *expiry < now
+                    {
+                        occupied.remove();
+                        return Ok(None);
                     }
 
                     let mut popped = Vec::new();
@@ -390,11 +390,11 @@ impl Soul {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
-                    if let Some(expiry) = expiry {
-                        if *expiry < now {
-                            occupied.remove();
-                            return Ok(None);
-                        }
+                    if let Some(expiry) = expiry
+                        && *expiry < now
+                    {
+                        occupied.remove();
+                        return Ok(None);
                     }
 
                     let element = list.pop_back();
@@ -421,11 +421,11 @@ impl Soul {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
-                    if let Some(expiry) = expiry {
-                        if *expiry < now {
-                            occupied.remove();
-                            return Ok(None);
-                        }
+                    if let Some(expiry) = expiry
+                        && *expiry < now
+                    {
+                        occupied.remove();
+                        return Ok(None);
                     }
 
                     let mut popped = Vec::new();
@@ -610,11 +610,11 @@ impl Soul {
             Entry::Occupied(mut occupied) => {
                 let (_, existing_expiry) = occupied.get_mut();
 
-                if let Some(expiry) = existing_expiry {
-                    if *expiry < now {
-                        occupied.remove();
-                        return 0;
-                    }
+                if let Some(expiry) = existing_expiry
+                    && *expiry < now
+                {
+                    occupied.remove();
+                    return 0;
                 }
 
                 *existing_expiry = Some(expiry);
@@ -632,7 +632,7 @@ impl Soul {
                 if let Some(expiry) = existing_expiry {
                     if *expiry < now {
                         occupied.remove();
-                        return -2;
+                        -2
                     } else {
                         let Ok(duration) = (*expiry).duration_since(now) else {
                             occupied.remove();
@@ -642,7 +642,7 @@ impl Soul {
                         duration.as_secs() as i64
                     }
                 } else {
-                    return -1;
+                    -1
                 }
             }
             Entry::Vacant(_) => -2,
@@ -657,12 +657,12 @@ impl Soul {
 
     pub fn mget(
         &self,
-        mut terms_iter: IntoIter<Vec<u8>>,
+        terms_iter: IntoIter<Vec<u8>>,
         now: SystemTime,
     ) -> Option<Vec<Option<Vec<u8>>>> {
         let mut result = Vec::with_capacity(terms_iter.len());
 
-        while let Some(key) = terms_iter.next() {
+        for key in terms_iter {
             match self.get_valid_value(&key, now) {
                 Some(Value::String(value)) => {
                     result.push(Some(value.clone()));
@@ -746,9 +746,9 @@ impl Soul {
         match self.get_valid_value(&key, now) {
             Some(Value::Set(set)) => {
                 if set.contains(&value) {
-                    return Ok(1);
+                    Ok(1)
                 } else {
-                    return Ok(0);
+                    Ok(0)
                 }
             }
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::SREM)),
@@ -801,7 +801,7 @@ impl Soul {
         match self.0.get(key) {
             Some((value, Some(expiry))) => {
                 if *expiry < now {
-                    return None;
+                    None
                 } else {
                     Some(value)
                 }
@@ -815,7 +815,7 @@ impl Soul {
         match self.0.get_mut(key) {
             Some((value, Some(expiry))) => {
                 if *expiry < now {
-                    return None;
+                    None
                 } else {
                     Some(value)
                 }
@@ -873,14 +873,11 @@ impl ClientMap {
         };
 
         for (event, _) in events {
-            match self.0.get_mut(event) {
-                Some(set) => {
-                    set.remove(&token);
-                    if set.is_empty() {
-                        self.0.remove(event);
-                    }
+            if let Some(set) = self.0.get_mut(event) {
+                set.remove(&token);
+                if set.is_empty() {
+                    self.0.remove(event);
                 }
-                None => {}
             }
         }
     }
@@ -904,27 +901,37 @@ impl EventMap {
         EventMap(HashMap::new())
     }
 
-    pub fn subscribe(&mut self, token: Token, events: Vec<Vec<u8>>) -> usize {
+    pub fn subscribe(&mut self, token: Token, events: Vec<Vec<u8>>) -> Vec<(Vec<u8>, usize)> {
         match self.0.get_mut(&token) {
             Some(set) => {
+                let mut result = Vec::new();
+
+                let mut count = set.len();
+
                 for event in events {
-                    set.insert(event);
+                    if set.insert(event.clone()) {
+                        count += 1;
+                        result.push((event, count));
+                    }
                 }
 
-                set.len()
+                result
             }
             None => {
                 let mut set = HashSet::new();
+                let mut result = Vec::new();
+                let mut count = 0;
 
                 for event in events {
-                    set.insert(event);
+                    if set.insert(event.clone()) {
+                        count += 1;
+                        result.push((event, count));
+                    }
                 }
-
-                let set_len = set.len();
 
                 self.0.insert(token, set);
 
-                set_len
+                result
             }
         }
     }
@@ -933,19 +940,25 @@ impl EventMap {
         &mut self,
         events: Vec<Vec<u8>>,
         token: Token,
+        subscribed_clients: &mut HashSet<Token>,
     ) -> Option<Vec<(Vec<u8>, usize)>> {
         match self.0.get_mut(&token) {
             Some(existing_events) => {
                 let mut result = Vec::new();
                 let mut count = existing_events.len();
 
-                if events.len() > 0 {
+                if !events.is_empty() {
                     for event in events {
                         if existing_events.remove(&event) {
                             count -= 1;
                         }
 
                         result.push((event, count));
+                    }
+
+                    if existing_events.is_empty() {
+                        self.0.remove(&token);
+                        subscribed_clients.remove(&token);
                     }
 
                     Some(result)
@@ -959,6 +972,9 @@ impl EventMap {
                         result.push((event, count));
                     }
 
+                    subscribed_clients.remove(&token);
+                    self.0.remove(&token);
+
                     Some(result)
                 }
             }
@@ -967,920 +983,291 @@ impl EventMap {
     }
 }
 
-pub enum Wish {
+pub struct Wish {
+    token: Token,
+    tx: Sender<Decree>,
+    command_type: CommandType,
+}
+
+#[derive(Clone)]
+pub enum CommandType {
     Get {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Set {
         key: Vec<u8>,
-        token: Token,
         value: (Value, Option<SystemTime>),
-        tx: Sender<Decree>,
     },
     Del {
         keys: Vec<Vec<u8>>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Append {
         key: Vec<u8>,
-        token: Token,
         value: Vec<u8>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Incr {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Decr {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Strlen {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Exists {
         keys: Vec<Vec<u8>>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hset {
         key: Vec<u8>,
-        token: Token,
         field_value_pairs: Vec<(Vec<u8>, Vec<u8>)>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hget {
         key: Vec<u8>,
-        token: Token,
         field: Vec<u8>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hmget {
         key: Vec<u8>,
-        token: Token,
         fields: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hdel {
         key: Vec<u8>,
-        token: Token,
         fields: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hexists {
         key: Vec<u8>,
-        token: Token,
         field: Vec<u8>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hlen {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lpush {
         key: Vec<u8>,
-        token: Token,
         elements: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lpop {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     LpopM {
         key: Vec<u8>,
         count: usize,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Rpush {
         key: Vec<u8>,
-        token: Token,
         elements: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Rpop {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     RpopM {
         key: Vec<u8>,
         count: usize,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Llen {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lrange {
         key: Vec<u8>,
         starting_index: i32,
         ending_index: i32,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lindex {
         key: Vec<u8>,
         index: i32,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lset {
         key: Vec<u8>,
         index: i32,
         element: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Lrem {
         key: Vec<u8>,
         count: i32,
         element: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Expire {
         key: Vec<u8>,
         expiry: SystemTime,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Ttl {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Subscribe {
         events: Vec<Vec<u8>>,
-        token: Token,
-        tx: Sender<Decree>,
     },
     Publish {
         event: Vec<u8>,
         message: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
     },
     Mset {
         terms_iter: IntoIter<Vec<u8>>,
-        token: Token,
-        tx: Sender<Decree>,
     },
     Mget {
         terms_iter: IntoIter<Vec<u8>>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Sadd {
         key: Vec<u8>,
-        token: Token,
         values: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Srem {
         key: Vec<u8>,
-        token: Token,
         values: Vec<Vec<u8>>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Sismember {
         key: Vec<u8>,
-        token: Token,
         value: Vec<u8>,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Hgetall {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Smembers {
         key: Vec<u8>,
-        token: Token,
-        tx: Sender<Decree>,
         time: SystemTime,
     },
     Unsubscribe {
-        token: Token,
-        tx: Sender<Decree>,
         terms: Vec<Vec<u8>>,
     },
 }
 
 #[derive(Clone)]
-pub struct Temple<'a> {
-    name: &'a str,
+pub struct Temple {
     tx: Sender<Wish>,
 }
 
-impl<'a> Temple<'a> {
-    pub fn new(name: &'a str) -> Self {
-        let (tx, rx) = std::sync::mpsc::channel();
+impl Temple {
+    pub fn new() -> Self {
+        let (tx, rx): (Sender<Wish>, Receiver<Wish>) = std::sync::mpsc::channel();
 
         std::thread::spawn(move || {
             let mut soul = Soul::new();
             let mut client_map = ClientMap::new();
             let mut event_map = EventMap::new();
+            let mut subscribed_clients = HashSet::new();
 
             loop {
                 match rx.recv() {
-                    Ok(wish) => match wish {
-                        Wish::Get {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.get(key, time) {
-                            Ok(bulk_string) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkString(bulk_string),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Set {
-                            key,
-                            token,
-                            value: val,
-                            tx,
-                        } => {
-                            soul.set(key, val);
+                    Ok(wish) => {
+                        let token = wish.token;
+                        let tx = wish.tx;
 
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Info(InfoType::Ok),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            }
-                        }
-                        Wish::Del {
-                            keys,
-                            token,
-                            tx,
-                            time,
-                        } => {
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Amount(soul.del(keys, time)),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            }
-                        }
-                        Wish::Append {
-                            key,
-                            token,
-                            value,
-                            tx,
-                            time,
-                        } => match soul.append(key, value, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
+                        let command_type = wish.command_type;
 
-                        Wish::Incr {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.incr(key, time) {
-                            Ok(number) => {
+                        match command_type {
+                            CommandType::Subscribe { events } => {
+                                subscribed_clients.insert(token);
+
+                                let subscribed_channels =
+                                    event_map.subscribe(token, events.clone());
+                                client_map.subscribe(token, events.clone());
+
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Number(number),
+                                        response: Response::SubscribedChannels(
+                                            subscribed_channels,
+                                        ),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
+
+                                continue;
                             }
-                            Err(sacrilege) => {
+                            CommandType::Unsubscribe { terms } => {
+                                let unsubscribed_events =
+                                    event_map.unsubscribe(terms, token, &mut subscribed_clients);
+                                client_map.unsubscribe(token, &unsubscribed_events);
+
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Decr {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.decr(key, time) {
-                            Ok(number) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Number(number),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Strlen {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.strlen(key, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked")
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked")
-                                }
-                            }
-                        },
-                        Wish::Exists {
-                            keys,
-                            token,
-                            tx,
-                            time,
-                        } => {
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Amount(soul.exists(keys, time)),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            }
-                        }
-                        Wish::Hset {
-                            key,
-                            token,
-                            field_value_pairs,
-                            tx,
-                            time,
-                        } => match soul.hset(key, field_value_pairs, time) {
-                            Ok(new_values_added) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Amount(new_values_added),
+                                        response: Response::UnsubscribedChannels(
+                                            unsubscribed_events,
+                                        ),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 };
+
+                                continue;
                             }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                };
+                            _ => {}
+                        }
+
+                        if subscribed_clients.contains(&token) {
+                            if tx
+                                .send(Decree::Deliver(Gift {
+                                    token,
+                                    response: Response::Error(Sacrilege::SubscriberOnlyMode),
+                                }))
+                                .is_err()
+                            {
+                                eprintln!("angel panicked");
                             }
-                        },
-                        Wish::Hget {
-                            key,
-                            token,
-                            field,
-                            tx,
-                            time,
-                        } => match soul.hget(key, field, time) {
-                            Ok(bulk_string) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkString(bulk_string),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+
+                            continue;
+                        }
+
+                        match command_type {
+                            CommandType::Get { key, time } => match soul.get(key, time) {
+                                Ok(bulk_string) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkString(bulk_string),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
                                 }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
                                 }
-                            }
-                        },
-                        Wish::Hmget {
-                            key,
-                            token,
-                            fields,
-                            tx,
-                            time,
-                        } => match soul.hmget(key, fields, time) {
-                            Ok(bulk_string_array) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkStringArray(bulk_string_array),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Hdel {
-                            key,
-                            token,
-                            fields,
-                            tx,
-                            time,
-                        } => match soul.hdel(key, fields, time) {
-                            Ok(amount) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Amount(amount),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Hexists {
-                            key,
-                            token,
-                            field,
-                            tx,
-                            time,
-                        } => match soul.hexists(key, field, time) {
-                            Ok(amount) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Amount(amount),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Hlen {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.hlen(key, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Lpush {
-                            key,
-                            token,
-                            elements,
-                            tx,
-                            time,
-                        } => match soul.lpush(key, elements, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Lpop {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.lpop(key, time) {
-                            Ok(element) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkString(element),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::LpopM {
-                            key,
-                            count,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.lpop_m(key, count, time) {
-                            Ok(elements) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkStringArray(elements),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Rpush {
-                            key,
-                            token,
-                            elements,
-                            tx,
-                            time,
-                        } => match soul.rpush(key, elements, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Rpop {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.rpop(key, time) {
-                            Ok(element) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkString(element),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::RpopM {
-                            key,
-                            count,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.rpop_m(key, count, time) {
-                            Ok(elements) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkStringArray(elements),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Llen {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.llen(key, time) {
-                            Ok(length) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(length),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Lrange {
-                            key,
-                            starting_index,
-                            ending_index,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.lrange(key, starting_index, ending_index, time) {
-                            Ok(bulk_string_array) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkStringArray(bulk_string_array),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Lindex {
-                            key,
-                            token,
-                            index,
-                            tx,
-                            time,
-                        } => match soul.lindex(key, index, time) {
-                            Ok(element) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkString(element),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Lset {
-                            key,
-                            token,
-                            element,
-                            index,
-                            tx,
-                            time,
-                        } => match soul.lset(key, index, element, time) {
-                            Ok(_) => {
+                            },
+                            CommandType::Set { key, value: val } => {
+                                soul.set(key, val);
+
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
@@ -1891,249 +1278,628 @@ impl<'a> Temple<'a> {
                                     eprintln!("angel panicked");
                                 }
                             }
-                            Err(sacrilege) => {
+                            CommandType::Del { keys, time } => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Error(sacrilege),
+                                        response: Response::Amount(soul.del(keys, time)),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
                             }
-                        },
-                        Wish::Lrem {
-                            key,
-                            token,
-                            element,
-                            count,
-                            tx,
-                            time,
-                        } => match soul.lrem(key, count, element, time) {
-                            Ok(amount) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(amount),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+                            CommandType::Append { key, value, time } => {
+                                match soul.append(key, value, time) {
+                                    Ok(length) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Length(length),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
                                 }
                             }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Expire {
-                            key,
-                            token,
-                            expiry,
-                            tx,
-                            time,
-                        } => {
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Amount(soul.expire(key, expiry, time)),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            }
-                        }
-                        Wish::Ttl {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => {
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Number(soul.ttl(key, time)),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            }
-                        }
-                        Wish::Subscribe { events, token, tx } => {
-                            let number_of_subscribed_channels =
-                                event_map.subscribe(token, events.clone());
-                            client_map.subscribe(token, events.clone());
 
-                            for event in events {
+                            CommandType::Incr { key, time } => match soul.incr(key, time) {
+                                Ok(number) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Number(number),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Decr { key, time } => match soul.decr(key, time) {
+                                Ok(number) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Number(number),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Strlen { key, time } => match soul.strlen(key, time) {
+                                Ok(length) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(length),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked")
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked")
+                                    }
+                                }
+                            },
+                            CommandType::Exists { keys, time } => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::NumberOfSubscribedChannels(
-                                            event,
-                                            number_of_subscribed_channels,
-                                        ),
+                                        response: Response::Amount(soul.exists(keys, time)),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
                             }
-                        }
-                        Wish::Publish {
-                            event,
-                            message,
-                            token,
-                            tx,
-                        } => {
-                            let clients = client_map.publish(event.clone());
+                            CommandType::Hset {
+                                key,
+                                field_value_pairs,
 
-                            if tx
-                                .send(Decree::Broadcast(token, event, message, clients))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
+                                time,
+                            } => match soul.hset(key, field_value_pairs, time) {
+                                Ok(new_values_added) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Amount(new_values_added),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    };
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    };
+                                }
+                            },
+                            CommandType::Hget { key, field, time } => {
+                                match soul.hget(key, field, time) {
+                                    Ok(bulk_string) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::BulkString(bulk_string),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        Wish::Mset {
-                            terms_iter,
-                            token,
-                            tx,
-                        } => {
-                            soul.mset(terms_iter);
+                            CommandType::Hmget { key, fields, time } => match soul
+                                .hmget(key, fields, time)
+                            {
+                                Ok(bulk_string_array) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkStringArray(bulk_string_array),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Hdel { key, fields, time } => {
+                                match soul.hdel(key, fields, time) {
+                                    Ok(amount) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Amount(amount),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
+                            }
+                            CommandType::Hexists { key, field, time } => {
+                                match soul.hexists(key, field, time) {
+                                    Ok(amount) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Amount(amount),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
+                            }
+                            CommandType::Hlen { key, time } => match soul.hlen(key, time) {
+                                Ok(length) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(length),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Lpush {
+                                key,
+                                elements,
 
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::Info(InfoType::Ok),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
+                                time,
+                            } => match soul.lpush(key, elements, time) {
+                                Ok(length) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(length),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Lpop { key, time } => match soul.lpop(key, time) {
+                                Ok(element) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkString(element),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::LpopM { key, count, time } => {
+                                match soul.lpop_m(key, count, time) {
+                                    Ok(elements) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::BulkStringArray(elements),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        Wish::Mget {
-                            terms_iter,
-                            token,
-                            tx,
-                            time,
-                        } => {
-                            let bulk_string_array = soul.mget(terms_iter, time);
+                            CommandType::Rpush {
+                                key,
+                                elements,
 
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::BulkStringArray(bulk_string_array),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
+                                time,
+                            } => match soul.rpush(key, elements, time) {
+                                Ok(length) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(length),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Rpop { key, time } => match soul.rpop(key, time) {
+                                Ok(element) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkString(element),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::RpopM { key, count, time } => {
+                                match soul.rpop_m(key, count, time) {
+                                    Ok(elements) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::BulkStringArray(elements),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
                             }
-                        }
-                        Wish::Sadd {
-                            key,
-                            token,
-                            values,
-                            tx,
-                            time,
-                        } => match soul.sadd(key, values, time) {
-                            Ok(amount) => {
+                            CommandType::Llen { key, time } => match soul.llen(key, time) {
+                                Ok(length) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(length),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Lrange {
+                                key,
+                                starting_index,
+                                ending_index,
+                                time,
+                            } => match soul.lrange(key, starting_index, ending_index, time) {
+                                Ok(bulk_string_array) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkStringArray(bulk_string_array),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Lindex { key, index, time } => {
+                                match soul.lindex(key, index, time) {
+                                    Ok(element) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::BulkString(element),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                }
+                            }
+                            CommandType::Lset {
+                                key,
+                                element,
+                                index,
+
+                                time,
+                            } => match soul.lset(key, index, element, time) {
+                                Ok(_) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Info(InfoType::Ok),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Lrem {
+                                key,
+                                element,
+                                count,
+                                time,
+                            } => match soul.lrem(key, count, element, time) {
+                                Ok(amount) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Length(amount),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Expire { key, expiry, time } => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Length(amount),
+                                        response: Response::Amount(soul.expire(key, expiry, time)),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
                             }
-                            Err(sacrilege) => {
+                            CommandType::Ttl { key, time } => {
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Error(sacrilege),
+                                        response: Response::Number(soul.ttl(key, time)),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
                             }
-                        },
-                        Wish::Srem {
-                            key,
-                            token,
-                            values,
-                            tx,
-                            time,
-                        } => match soul.srem(key, values, time) {
-                            Ok(amount) => {
+                            CommandType::Publish { event, message } => {
+                                let clients = client_map.publish(event.clone());
+
+                                if tx
+                                    .send(Decree::Broadcast(token, event, message, clients))
+                                    .is_err()
+                                {
+                                    eprintln!("angel panicked");
+                                }
+                            }
+                            CommandType::Mset { terms_iter } => {
+                                soul.mset(terms_iter);
+
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::Length(amount),
+                                        response: Response::Info(InfoType::Ok),
                                     }))
                                     .is_err()
                                 {
                                     eprintln!("angel panicked");
                                 }
                             }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Sismember {
-                            key,
-                            token,
-                            value,
-                            tx,
-                            time,
-                        } => match soul.sismember(key, value, time) {
-                            Ok(amount) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Length(amount),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
-                                }
-                            }
-                        },
-                        Wish::Hgetall {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.hgetall(key, time) {
-                            Ok(bulk_string_array) => {
+                            CommandType::Mget { terms_iter, time } => {
+                                let bulk_string_array = soul.mget(terms_iter, time);
+
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
@@ -2144,62 +1910,136 @@ impl<'a> Temple<'a> {
                                     eprintln!("angel panicked");
                                 }
                             }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+                            CommandType::Sadd { key, values, time } => {
+                                match soul.sadd(key, values, time) {
+                                    Ok(amount) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Length(amount),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
                                 }
                             }
-                        },
-                        Wish::Smembers {
-                            key,
-                            token,
-                            tx,
-                            time,
-                        } => match soul.smembers(key, time) {
-                            Ok(bulk_string_array) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::BulkStringArray(bulk_string_array),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+                            CommandType::Srem { key, values, time } => {
+                                match soul.srem(key, values, time) {
+                                    Ok(amount) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Length(amount),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
                                 }
                             }
-                            Err(sacrilege) => {
-                                if tx
-                                    .send(Decree::Deliver(Gift {
-                                        token,
-                                        response: Response::Error(sacrilege),
-                                    }))
-                                    .is_err()
-                                {
-                                    eprintln!("angel panicked");
+                            CommandType::Sismember { key, value, time } => {
+                                match soul.sismember(key, value, time) {
+                                    Ok(amount) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Length(amount),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
+                                    Err(sacrilege) => {
+                                        if tx
+                                            .send(Decree::Deliver(Gift {
+                                                token,
+                                                response: Response::Error(sacrilege),
+                                            }))
+                                            .is_err()
+                                        {
+                                            eprintln!("angel panicked");
+                                        }
+                                    }
                                 }
                             }
-                        },
-                        Wish::Unsubscribe { token, tx, terms } => {
-                            let unsubscribed_events = event_map.unsubscribe(terms, token);
-                            client_map.unsubscribe(token, &unsubscribed_events);
-
-                            if tx
-                                .send(Decree::Deliver(Gift {
-                                    token,
-                                    response: Response::UnsubscribedChannels(unsubscribed_events),
-                                }))
-                                .is_err()
-                            {
-                                eprintln!("angel panicked");
-                            };
+                            CommandType::Hgetall { key, time } => match soul.hgetall(key, time) {
+                                Ok(bulk_string_array) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkStringArray(bulk_string_array),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            CommandType::Smembers { key, time } => match soul.smembers(key, time) {
+                                Ok(bulk_string_array) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::BulkStringArray(bulk_string_array),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                                Err(sacrilege) => {
+                                    if tx
+                                        .send(Decree::Deliver(Gift {
+                                            token,
+                                            response: Response::Error(sacrilege),
+                                        }))
+                                        .is_err()
+                                    {
+                                        eprintln!("angel panicked");
+                                    }
+                                }
+                            },
+                            _ => {}
                         }
-                    },
+                    }
+
                     Err(e) => {
                         eprintln!("GodThread: {}", e);
                         break;
@@ -2208,17 +2048,16 @@ impl<'a> Temple<'a> {
             }
         });
 
-        Temple { name, tx }
+        Temple { tx }
     }
 
     pub fn get(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Get {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Get { key, time },
             })
             .is_err()
         {
@@ -2235,11 +2074,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Set {
-                key,
-                token,
-                value,
+            .send(Wish {
                 tx,
+                token,
+                command_type: CommandType::Set { key, value },
             })
             .is_err()
         {
@@ -2250,11 +2088,10 @@ impl<'a> Temple<'a> {
     pub fn del(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Del {
-                keys,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Del { keys, time },
             })
             .is_err()
         {
@@ -2265,11 +2102,10 @@ impl<'a> Temple<'a> {
     pub fn exists(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Exists {
-                keys,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Exists { keys, time },
             })
             .is_err()
         {
@@ -2287,12 +2123,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Append {
-                key,
-                token,
-                value,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Append { key, value, time },
             })
             .is_err()
         {
@@ -2303,11 +2137,10 @@ impl<'a> Temple<'a> {
     pub fn incr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Incr {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Incr { key, time },
             })
             .is_err()
         {
@@ -2318,11 +2151,10 @@ impl<'a> Temple<'a> {
     pub fn decr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Decr {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Decr { key, time },
             })
             .is_err()
         {
@@ -2333,11 +2165,10 @@ impl<'a> Temple<'a> {
     pub fn strlen(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Strlen {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Strlen { key, time },
             })
             .is_err()
         {
@@ -2355,12 +2186,16 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Hset {
-                key,
-                token,
-                field_value_pairs,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hset {
+                    key,
+
+                    field_value_pairs,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2378,12 +2213,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Hget {
-                key,
-                token,
-                field,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hget { key, field, time },
             })
             .is_err()
         {
@@ -2401,12 +2234,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Hmget {
-                key,
-                token,
-                fields,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hmget { key, fields, time },
             })
             .is_err()
         {
@@ -2424,12 +2255,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Hdel {
-                key,
-                token,
-                fields,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hdel { key, fields, time },
             })
             .is_err()
         {
@@ -2447,12 +2276,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Hexists {
-                key,
-                token,
-                field,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hexists { key, field, time },
             })
             .is_err()
         {
@@ -2463,11 +2290,10 @@ impl<'a> Temple<'a> {
     pub fn hlen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Hlen {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hlen { key, time },
             })
             .is_err()
         {
@@ -2485,12 +2311,16 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Lpush {
-                key,
-                token,
-                elements,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lpush {
+                    key,
+
+                    elements,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2501,11 +2331,10 @@ impl<'a> Temple<'a> {
     pub fn lpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Lpop {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lpop { key, time },
             })
             .is_err()
         {
@@ -2523,12 +2352,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::LpopM {
-                key,
-                count,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::LpopM { key, count, time },
             })
             .is_err()
         {
@@ -2546,12 +2373,16 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Rpush {
-                key,
-                token,
-                elements,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Rpush {
+                    key,
+
+                    elements,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2562,11 +2393,10 @@ impl<'a> Temple<'a> {
     pub fn rpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Rpop {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Rpop { key, time },
             })
             .is_err()
         {
@@ -2584,12 +2414,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::RpopM {
-                key,
-                count,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::RpopM { key, count, time },
             })
             .is_err()
         {
@@ -2600,11 +2428,10 @@ impl<'a> Temple<'a> {
     pub fn llen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Llen {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Llen { key, time },
             })
             .is_err()
         {
@@ -2623,13 +2450,16 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Lrange {
-                key,
-                starting_index,
-                ending_index,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lrange {
+                    key,
+                    starting_index,
+                    ending_index,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2647,12 +2477,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Lindex {
-                key,
-                token,
-                index,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lindex { key, index, time },
             })
             .is_err()
         {
@@ -2671,13 +2499,17 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Lset {
-                key,
-                token,
-                element,
-                index,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lset {
+                    key,
+
+                    element,
+                    index,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2696,13 +2528,17 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Lrem {
-                key,
-                token,
-                element,
-                count,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Lrem {
+                    key,
+
+                    element,
+                    count,
+
+                    time,
+                },
             })
             .is_err()
         {
@@ -2720,12 +2556,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Expire {
-                key,
-                expiry,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Expire { key, expiry, time },
             })
             .is_err()
         {
@@ -2736,11 +2570,10 @@ impl<'a> Temple<'a> {
     pub fn ttl(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Ttl {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Ttl { key, time },
             })
             .is_err()
         {
@@ -2749,7 +2582,15 @@ impl<'a> Temple<'a> {
     }
 
     pub fn subscribe(&self, tx: Sender<Decree>, events: Vec<Vec<u8>>, token: Token) {
-        if self.tx.send(Wish::Subscribe { events, token, tx }).is_err() {
+        if self
+            .tx
+            .send(Wish {
+                tx,
+                token,
+                command_type: CommandType::Subscribe { events },
+            })
+            .is_err()
+        {
             eprintln!("angel panicked");
         }
     }
@@ -2757,11 +2598,10 @@ impl<'a> Temple<'a> {
     pub fn publish(&self, tx: Sender<Decree>, event: Vec<u8>, message: Vec<u8>, token: Token) {
         if self
             .tx
-            .send(Wish::Publish {
-                event,
-                message,
-                token,
+            .send(Wish {
                 tx,
+                token,
+                command_type: CommandType::Publish { event, message },
             })
             .is_err()
         {
@@ -2772,10 +2612,10 @@ impl<'a> Temple<'a> {
     pub fn mset(&self, terms_iter: IntoIter<Vec<u8>>, tx: Sender<Decree>, token: Token) {
         if self
             .tx
-            .send(Wish::Mset {
-                terms_iter,
-                token,
+            .send(Wish {
                 tx,
+                token,
+                command_type: CommandType::Mset { terms_iter },
             })
             .is_err()
         {
@@ -2792,11 +2632,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Mget {
-                terms_iter,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Mget { terms_iter, time },
             })
             .is_err()
         {
@@ -2814,12 +2653,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Sadd {
-                key,
-                token,
-                values,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Sadd { key, values, time },
             })
             .is_err()
         {
@@ -2837,12 +2674,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Sadd {
-                key,
-                token,
-                values,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Sadd { key, values, time },
             })
             .is_err()
         {
@@ -2860,12 +2695,10 @@ impl<'a> Temple<'a> {
     ) {
         if self
             .tx
-            .send(Wish::Sismember {
-                key,
-                token,
-                value,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Sismember { key, value, time },
             })
             .is_err()
         {
@@ -2876,11 +2709,10 @@ impl<'a> Temple<'a> {
     pub fn hgetall(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Hgetall {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Hgetall { key, time },
             })
             .is_err()
         {
@@ -2891,11 +2723,10 @@ impl<'a> Temple<'a> {
     pub fn smembers(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
         if self
             .tx
-            .send(Wish::Smembers {
-                key,
-                token,
+            .send(Wish {
                 tx,
-                time,
+                token,
+                command_type: CommandType::Smembers { key, time },
             })
             .is_err()
         {
@@ -2906,7 +2737,11 @@ impl<'a> Temple<'a> {
     pub fn unsubscribe(&self, tx: Sender<Decree>, token: Token, terms: Vec<Vec<u8>>) {
         if self
             .tx
-            .send(Wish::Unsubscribe { token, tx, terms })
+            .send(Wish {
+                tx,
+                token,
+                command_type: CommandType::Unsubscribe { terms },
+            })
             .is_err()
         {
             eprintln!("angel panicked");

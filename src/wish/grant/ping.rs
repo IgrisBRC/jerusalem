@@ -4,13 +4,13 @@ use std::sync::mpsc::Sender;
 use mio::Token;
 
 use crate::wish::{
-    InfoType, Response, Sin,
+    InfoType, Response,
     grant::{Decree, Gift},
 };
 
 pub fn ping(terms: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token) {
-    if terms.len() != 1 {
-        if tx
+    if terms.len() != 1
+        && tx
             .send(Decree::Deliver(Gift {
                 token,
                 response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::PING)),
@@ -19,7 +19,6 @@ pub fn ping(terms: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token) {
         {
             eprintln!("angel panicked");
         }
-    }
 
     if tx
         .send(Decree::Deliver(Gift {

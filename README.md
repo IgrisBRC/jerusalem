@@ -35,11 +35,13 @@ Note: Every command is supposed to work just like how it would in Redis.
 | **DEL** | Generic | `DEL key [key...]` | Removes keys of any data type |
 | **TTL** | Generic | `TTL key` | Returns the expiry of the entry at key|
 | **EXPIRE** | Generic | `EXPIRE key expiry` | Sets the expiry of the entry at key |
-| **SUBSCRIBE** | Broadcast | `SUBSCRIBE event` | Subscribes you to event |
+| **SUBSCRIBE** | Broadcast | `SUBSCRIBE event [event ...]` | Subscribes you to event(s) |
+| **UNSUBSCRIBE** | Broadcast | `UNSUBSCRIBE event [event ...]` | Unsubscribes you from the event(s) |
 | **PUBLISH** | Broadcast | `PUBLISH event message` | Sends a message to all the clients subscribed to event |
 | **PING** | System | `PING` | Returns `PONG` |
 
 ### A Note on PING
+
 Currently, Jerusalem requires the standard RESP array protocol format for all commands. Some clients may attempt to send a "naked" PING during pipelining without the array marker (`*`). This is currently not supported to keep the parser logic clean and focused on standard protocol adherence.
 
 ## Usage
@@ -60,24 +62,16 @@ https://crates.io/crates/jemallocator
 
 https://crates.io/crates/itoa
 
-## My order of operations for this project
-
-Make the error messages.
-
 ## Maybe plans
 
 Sharding
 
 ## todo
 
-Match through all the possible errors in egress.rs and give appropriate error message.
-
-Restrict the number of arguments accepted for all the commands.
-
-Subscriber mod
-
 Metacommands
+
+Command length cap
 
 Persistance
 
-cli options
+Cli options

@@ -5,15 +5,15 @@ use mio::Token;
 use crate::{
     temple::Temple,
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
         util::bytes_to_usize,
     },
 };
 
 pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
-    if terms.len() > 3 {
-        if tx
+    if terms.len() > 3
+        && tx
             .send(Decree::Deliver(Gift {
                 token,
                 response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LPOP)),
@@ -22,7 +22,6 @@ pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token:
         {
             eprintln!("angel panicked");
         }
-    }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();

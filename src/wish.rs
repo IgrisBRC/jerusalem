@@ -87,6 +87,7 @@ pub enum Sacrilege {
     IncorrectNumberOfArguments(Command),
     IncorrectUsage(Command),
     UnknownCommand,
+    SubscriberOnlyMode,
 }
 
 pub enum InfoType {
@@ -102,7 +103,7 @@ pub enum Response {
     Amount(u32),
     Number(i64),
     Length(usize),
-    NumberOfSubscribedChannels(Vec<u8>, usize),
+    SubscribedChannels(Vec<(Vec<u8>, usize)>),
     UnsubscribedChannels(Option<Vec<(Vec<u8>, usize)>>),
 }
 

@@ -1,7 +1,7 @@
 use mio::net::TcpStream;
 use std::io::Write;
 
-use crate::wish::{InfoType, Response, Sin, grant::Gift};
+use crate::wish::{Command, InfoType, Response, Sacrilege, Sin, grant::Gift};
 
 pub fn egress(stream: &mut TcpStream, gift: Gift, response: &mut Vec<u8>) -> Result<(), Sin> {
     response.clear();
@@ -66,15 +66,17 @@ pub fn egress(stream: &mut TcpStream, gift: Gift, response: &mut Vec<u8>) -> Res
             response.extend_from_slice(itoa_buf.format(length).as_bytes());
             response.extend_from_slice(b"\r\n");
         }
-        Response::NumberOfSubscribedChannels(event, number) => {
-            response.extend_from_slice(b"*3\r\n$9\r\nsubscribe\r\n$");
-            response.extend_from_slice(itoa_buf.format(event.len()).as_bytes());
-            response.extend_from_slice(b"\r\n");
-            response.extend_from_slice(&event);
-            response.extend_from_slice(b"\r\n:");
+        Response::SubscribedChannels(subscribed_channels) => {
+            for (subscribed_channel, count) in subscribed_channels {
+                response.extend_from_slice(b"*3\r\n$9\r\nsubscribe\r\n$");
+                response.extend_from_slice(itoa_buf.format(subscribed_channel.len()).as_bytes());
+                response.extend_from_slice(b"\r\n");
+                response.extend_from_slice(&subscribed_channel);
+                response.extend_from_slice(b"\r\n:");
 
-            response.extend_from_slice(itoa_buf.format(number).as_bytes());
-            response.extend_from_slice(b"\r\n");
+                response.extend_from_slice(itoa_buf.format(count).as_bytes());
+                response.extend_from_slice(b"\r\n");
+            }
         }
         Response::UnsubscribedChannels(unsubscribed_channels) => match unsubscribed_channels {
             Some(unsubscribed_channels) => {
@@ -94,12 +96,109 @@ pub fn egress(stream: &mut TcpStream, gift: Gift, response: &mut Vec<u8>) -> Res
                 response.extend_from_slice(b"*3\r\n$11\r\nunsubscribe\r\n$-1\r\n:0\r\n");
             }
         },
-        Response::Error(_) => {
-            response.extend_from_slice(b"-ERR Some error occured, and because I was too impatient to test this I didn't really wanna write out the logic to match my way through to figure out which error has happened here.\r\n");
-        }
+        Response::Error(sacrilege) => match sacrilege {
+            Sacrilege::UnknownCommand => {
+                response.extend_from_slice(b"-ERR unknown command\r\n");
+            }
+            Sacrilege::IncorrectUsage(command) => match command {
+                Command::INCR | Command::DECR => {
+                    response.extend_from_slice(b"-ERR value is not an integer or out of range\r\n");
+                }
+                Command::LSET | Command::LINDEX => {
+                    // In your Soul, these return IncorrectUsage when out of bounds
+                    response.extend_from_slice(b"-ERR index out of range\r\n");
+                }
+                _ => {
+                    // Standard Redis response for trying to use a List command on a String, etc.
+                    response.extend_from_slice(
+                        b"-WRONGTYPE Operation against a key holding the wrong kind of value\r\n",
+                    );
+                }
+            },
+            Sacrilege::IncorrectNumberOfArguments(command) => match command {
+                Command::PING => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'ping' command\r\n"),
+                Command::SET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'set' command\r\n"),
+                Command::GET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'get' command\r\n"),
+                Command::EX => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'ex' command\r\n"),
+                Command::INCR => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'incr' command\r\n"),
+                Command::DECR => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'decr' command\r\n"),
+                Command::APPEND => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'append' command\r\n"),
+                Command::STRLEN => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'strlen' command\r\n"),
+                Command::EXISTS => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'exists' command\r\n"),
+                Command::DEL => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'del' command\r\n"),
+                Command::HSET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hset' command\r\n"),
+                Command::HGET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hget' command\r\n"),
+                Command::HMGET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hmget' command\r\n"),
+                Command::HDEL => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hdel' command\r\n"),
+                Command::HEXISTS => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hexists' command\r\n"),
+                Command::HLEN => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hlen' command\r\n"),
+                Command::LPUSH => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lpush' command\r\n"),
+                Command::LPOP => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lpop' command\r\n"),
+                Command::RPUSH => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'rpush' command\r\n"),
+                Command::RPOP => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'rpop' command\r\n"),
+                Command::LLEN => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'llen' command\r\n"),
+                Command::LRANGE => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lrange' command\r\n"),
+                Command::LINDEX => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lindex' command\r\n"),
+                Command::LSET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lset' command\r\n"),
+                Command::LREM => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'lrem' command\r\n"),
+                Command::EXPIRE => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'expire' command\r\n"),
+                Command::TTL => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'ttl' command\r\n"),
+                Command::SUBSCRIBE => response.extend_from_slice(
+                    b"-ERR wrong number of arguments for 'subscribe' command\r\n",
+                ),
+                Command::PUBLISH => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'publish' command\r\n"),
+                Command::MSET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'mset' command\r\n"),
+                Command::MGET => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'mget' command\r\n"),
+                Command::SADD => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'sadd' command\r\n"),
+                Command::SREM => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'srem' command\r\n"),
+                Command::SISMEMBER => response.extend_from_slice(
+                    b"-ERR wrong number of arguments for 'sismember' command\r\n",
+                ),
+                Command::HGETALL => response
+                    .extend_from_slice(b"-ERR wrong number of arguments for 'hgetall' command\r\n"),
+                Command::SMEMBERS => response.extend_from_slice(
+                    b"-ERR wrong number of arguments for 'smembers' command\r\n",
+                ),
+            },
+            Sacrilege::SubscriberOnlyMode => response.extend_from_slice(
+                b"-ERR only SUBSCRIBE / UNSUBSCRIBE / PING / QUIT allowed in this context\r\n",
+            ),
+        },
     }
 
-    stream.write_all(&response).map_err(|_| Sin::Disconnected)?;
+    stream.write_all(response).map_err(|_| Sin::Disconnected)?;
 
     Ok(())
 }

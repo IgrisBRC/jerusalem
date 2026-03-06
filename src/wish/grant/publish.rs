@@ -1,11 +1,11 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::sync::mpsc::Sender;
 
 use mio::Token;
 
 use crate::{
     temple::Temple,
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
     },
 };

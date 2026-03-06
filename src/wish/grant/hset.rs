@@ -3,7 +3,7 @@ use mio::Token;
 use crate::{
     temple::Temple,
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
     },
 };
@@ -17,7 +17,7 @@ pub fn hset(
 )  {
     let terms_len = terms.len();
 
-    if terms_len < 4 || terms_len % 2 != 0 {
+    if terms_len < 4 || !terms_len.is_multiple_of(2) {
         if tx
             .send(Decree::Deliver(Gift {
                 token,

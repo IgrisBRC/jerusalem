@@ -38,7 +38,7 @@ fn main() {
 
     let ingress_choir = Choir::new(3);
 
-    let temple = Temple::new("IgrisDB");
+    let temple = Temple::new();
 
     let (ingress_tx, ingress_rx) = std::sync::mpsc::channel();
     let (egress_tx, egress_rx) = std::sync::mpsc::channel();
@@ -59,29 +59,31 @@ fn main() {
                     if let Some(stream) = egress_map.get_mut(&gift.token) {
                         let token = gift.token;
 
-                        if egress::egress(stream, gift, &mut buffer).is_err() && egress_tx.send(token).is_err() {
+                        if egress::egress(stream, gift, &mut buffer).is_err()
+                            && egress_tx.send(token).is_err()
+                        {
                             eprintln!("angel panicked");
                         };
                     }
                 }
-                Ok(Decree::Broadcast(token, mut event, mut message, clients)) => {
+                Ok(Decree::Broadcast(token, event, message, clients)) => {
                     let clients_len = clients.len();
 
                     let mut response = b"*3\r\n$7\r\nmessage\r\n$".to_vec();
                     response.extend_from_slice(itoa_buf.format(event.len()).as_bytes());
                     response.extend_from_slice(b"\r\n");
-                    response.extend_from_slice(&mut event);
+                    response.extend_from_slice(&event);
                     response.extend_from_slice(b"\r\n$");
                     response.extend_from_slice(itoa_buf.format(message.len()).as_bytes());
                     response.extend_from_slice(b"\r\n");
-                    response.extend_from_slice(&mut message);
+                    response.extend_from_slice(&message);
                     response.extend_from_slice(b"\r\n");
 
                     for client in clients {
-                        if let Some(stream) = egress_map.get_mut(&client) {
-                            if stream.write_all(&response).is_err() {
-                                eprintln!("writing to stream failed for client");
-                            }
+                        if let Some(stream) = egress_map.get_mut(&client)
+                            && stream.write_all(&response).is_err()
+                        {
+                            eprintln!("writing to stream failed for client");
                         }
                     }
 
@@ -195,7 +197,7 @@ fn main() {
                                         eprintln!("angel panicked");
                                     }
                                 }
-                                Err(e) => {
+                                Err(_e) => {
                                     // eprintln!("{:?}", e);
                                 }
                             }

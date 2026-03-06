@@ -1,13 +1,10 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::sync::mpsc::Sender;
 
 use mio::Token;
 
 use crate::{
-    temple::{Temple, Value},
-    wish::{
-        Command, Response, Sacrilege, Sin,
-        grant::{Decree, Gift},
-    },
+    temple::Temple,
+    wish::grant::Decree,
 };
 
 pub fn unsubscribe(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {

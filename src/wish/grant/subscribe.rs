@@ -3,11 +3,11 @@ use mio::Token;
 use crate::{
     temple::Temple,
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
     },
 };
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::sync::mpsc::Sender;
 
 pub fn subscribe(
     terms: Vec<Vec<u8>>,

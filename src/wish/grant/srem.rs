@@ -1,7 +1,7 @@
 use crate::{
     temple::Temple,
     wish::{
-        Command, Response, Sacrilege, Sin,
+        Command, Response, Sacrilege,
         grant::{Decree, Gift},
     },
 };
