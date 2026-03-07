@@ -42,6 +42,31 @@ impl Virtue {
             self.write_idx = len;
         }
     }
+
+    fn potentially_resize_and_read(&mut self, stream: &mut TcpStream) -> Result<bool, Sin> {
+        if self.write_idx > self.backlog.len() - 1024 {
+            self.compact();
+
+            if self.write_idx > self.backlog.len() - 1024 {
+                let new_size = self.backlog.len() * 2;
+
+                if new_size > 64 * 1024 * 1024 {
+                    return Err(Sin::Blasphemy);
+                }
+
+                self.backlog.resize(new_size, 0);
+            }
+        }
+
+        match stream.read(&mut self.backlog[self.write_idx..]) {
+            Ok(0) => return Err(Sin::Disconnected),
+            Ok(n) => self.write_idx += n,
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => return Ok(true),
+            Err(_) => return Err(Sin::Disconnected),
+        }
+
+        Ok(false)
+    }
 }
 
 pub enum Command {
@@ -129,6 +154,16 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
 
     if virtue.write_idx > virtue.backlog.len() - 1024 {
         virtue.compact();
+
+        if virtue.write_idx > virtue.backlog.len() - 1024 {
+            let new_size = virtue.backlog.len() * 2;
+
+            if new_size > 64 * 1024 * 1024 {
+                return Err(Sin::Blasphemy);
+            }
+
+            virtue.backlog.resize(new_size, 0);
+        }
     }
 
     match pilgrim.stream.read(&mut virtue.backlog[virtue.write_idx..]) {
@@ -140,6 +175,7 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
 
     loop {
         let active_window = &virtue.backlog[virtue.read_idx..virtue.write_idx];
+
         if active_window.is_empty() {
             break;
         }
@@ -159,7 +195,11 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
                     virtue.phase = Phase::GraspingMarker;
                     virtue.read_idx += index + 2;
                 } else {
-                    break;
+                    if virtue.potentially_resize_and_read(&mut pilgrim.stream)? {
+                        return Ok(());
+                    }
+
+                    continue;
                 }
             }
             Phase::GraspingMarker => {
@@ -167,7 +207,11 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
                     virtue.phase = Phase::AwaitingBulkStringLength;
                     virtue.read_idx += 1;
                 } else {
-                    break;
+                    if virtue.potentially_resize_and_read(&mut pilgrim.stream)? {
+                        return Ok(());
+                    }
+
+                    continue;
                 }
             }
             Phase::AwaitingBulkStringLength => {
@@ -176,7 +220,11 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
                     virtue.phase = Phase::AwaitingBulkString(len);
                     virtue.read_idx += index + 2;
                 } else {
-                    break;
+                    if virtue.potentially_resize_and_read(&mut pilgrim.stream)? {
+                        return Ok(());
+                    }
+
+                    continue;
                 }
             }
             Phase::AwaitingBulkString(len) => {
@@ -197,7 +245,11 @@ pub fn wish(pilgrim: &mut Pilgrim, mut temple: Temple, token: Token) -> Result<(
                         virtue.phase = Phase::Idle;
                     }
                 } else {
-                    break;
+                    if virtue.potentially_resize_and_read(&mut pilgrim.stream)? {
+                        return Ok(());
+                    }
+
+                    continue;
                 }
             }
         }
