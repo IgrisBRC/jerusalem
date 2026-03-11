@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use mio::Token;
 
@@ -67,6 +67,9 @@ pub fn lrange(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, toke
         starting_index,
         ending_index,
         token,
-        SystemTime::now(),
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
     );
 }

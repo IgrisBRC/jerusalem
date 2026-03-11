@@ -7,7 +7,7 @@ use crate::{
         grant::{Decree, Gift},
     },
 };
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 pub fn del(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
     if terms.len() < 2 {
@@ -27,5 +27,13 @@ pub fn del(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
-    temple.del(terms_iter.collect(), tx, token, SystemTime::now());
+    temple.del(
+        terms_iter.collect(),
+        tx,
+        token,
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    );
 }

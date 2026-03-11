@@ -1,4 +1,7 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{
+    sync::mpsc::Sender,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use mio::Token;
 
@@ -57,12 +60,15 @@ pub fn expire(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, toke
         return;
     };
 
-    let now = SystemTime::now();
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
 
     temple.expire(
         tx,
         key,
-        now + std::time::Duration::from_secs(expiry),
+        now + expiry,
         token,
         now,
     );

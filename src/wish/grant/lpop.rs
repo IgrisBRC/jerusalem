@@ -1,4 +1,7 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{
+    sync::mpsc::Sender,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use mio::Token;
 
@@ -19,9 +22,9 @@ pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token:
                 response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LPOP)),
             }))
             .is_err()
-        {
-            eprintln!("angel panicked");
-        }
+    {
+        eprintln!("angel panicked");
+    }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
@@ -29,7 +32,16 @@ pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token:
     if let Some(key) = terms_iter.next() {
         if let Some(count) = terms_iter.next() {
             if let Ok(count) = bytes_to_usize(&count) {
-                temple.lpop_m(tx, key, count, token, SystemTime::now());
+                temple.lpop_m(
+                    tx,
+                    key,
+                    count,
+                    token,
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0),
+                );
 
                 return;
             }
@@ -47,7 +59,15 @@ pub fn lpop(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token:
             return;
         }
 
-        temple.lpop(tx, key, token, SystemTime::now());
+        temple.lpop(
+            tx,
+            key,
+            token,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        );
     } else if tx
         .send(Decree::Deliver(Gift {
             token,

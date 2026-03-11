@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub fn ttl(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
-    if terms.len() != 3 {
+    if terms.len() != 2 {
         if tx
             .send(Decree::Deliver(Gift {
                 token,
@@ -42,7 +42,5 @@ pub fn ttl(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: 
         return;
     };
 
-    let now = SystemTime::now();
-
-    temple.ttl(tx, key, token, now);
+    temple.ttl(tx, key, token, SystemTime::now());
 }

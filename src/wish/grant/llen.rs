@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use mio::Token;
 
@@ -18,15 +18,23 @@ pub fn llen(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token:
                 response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LLEN)),
             }))
             .is_err()
-        {
-            eprintln!("angel panicked");
-        }
+    {
+        eprintln!("angel panicked");
+    }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
     if let Some(key) = terms_iter.next() {
-        temple.llen(tx, key, token, SystemTime::now());
+        temple.llen(
+            tx,
+            key,
+            token,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        );
     } else if tx
         .send(Decree::Deliver(Gift {
             token,

@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 pub fn set(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
     if terms.len() > 5 {
@@ -61,13 +61,16 @@ pub fn set(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: 
                         return;
                     };
 
-                    let now = SystemTime::now();
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
 
                     temple.set(
                         key,
                         (
                             Value::String(value),
-                            Some(now + std::time::Duration::from_secs(expiry)),
+                            Some(now + expiry),
                         ),
                         tx,
                         token,

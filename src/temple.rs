@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashSet, VecDeque};
 use std::sync::mpsc::{Receiver, Sender};
+use std::time::UNIX_EPOCH;
 use std::vec::IntoIter;
 use std::{collections::HashMap, time::SystemTime};
 
@@ -16,11 +17,12 @@ pub enum Value {
     List(VecDeque<Vec<u8>>),
     Hash(HashMap<Vec<u8>, Vec<u8>>),
     Set(HashSet<Vec<u8>>),
-    EventMap(HashMap<Vec<u8>, HashSet<Token>>),
-    ClientMap(HashMap<Token, HashSet<Vec<u8>>>),
+    EventMap(HashMap<Vec<u8>, HashSet<usize>>),
+    ClientMap(HashMap<usize, HashSet<Vec<u8>>>),
 }
 
-pub struct Soul(HashMap<Vec<u8>, (Value, Option<SystemTime>)>);
+pub struct Soul(HashMap<Vec<u8>, (Value, Option<u64>)>);
+
 pub struct EventMap(HashMap<Token, HashSet<Vec<u8>>>);
 pub struct ClientMap(HashMap<Vec<u8>, HashSet<Token>>);
 
@@ -35,7 +37,7 @@ impl Soul {
         Soul(HashMap::new())
     }
 
-    pub fn get(&mut self, key: Vec<u8>, now: SystemTime) -> Result<Option<Vec<u8>>, Sacrilege> {
+    pub fn get(&mut self, key: Vec<u8>, now: u64) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::String(value)) => Ok(Some(value.clone())),
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::GET)),
@@ -43,7 +45,7 @@ impl Soul {
         }
     }
 
-    pub fn set(&mut self, key: Vec<u8>, val: (Value, Option<SystemTime>)) {
+    pub fn set(&mut self, key: Vec<u8>, val: (Value, Option<u64>)) {
         self.0.insert(key, val);
     }
 
@@ -51,7 +53,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         mut incoming_value: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
@@ -67,7 +69,7 @@ impl Soul {
         }
     }
 
-    pub fn incr(&mut self, key: Vec<u8>, now: SystemTime) -> Result<i64, Sacrilege> {
+    pub fn incr(&mut self, key: Vec<u8>, now: u64) -> Result<i64, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
                 let mut itoa_buf = itoa::Buffer::new();
@@ -91,7 +93,7 @@ impl Soul {
         }
     }
 
-    pub fn decr(&mut self, key: Vec<u8>, now: SystemTime) -> Result<i64, Sacrilege> {
+    pub fn decr(&mut self, key: Vec<u8>, now: u64) -> Result<i64, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::String(value)) => {
                 let mut itoa_buf = itoa::Buffer::new();
@@ -115,7 +117,7 @@ impl Soul {
         }
     }
 
-    pub fn strlen(&self, key: Vec<u8>, now: SystemTime) -> Result<usize, Sacrilege> {
+    pub fn strlen(&self, key: Vec<u8>, now: u64) -> Result<usize, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::String(value)) => Ok(value.len()),
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::STRLEN)),
@@ -123,7 +125,7 @@ impl Soul {
         }
     }
 
-    pub fn del(&mut self, keys: Vec<Vec<u8>>, now: SystemTime) -> u32 {
+    pub fn del(&mut self, keys: Vec<Vec<u8>>, now: u64) -> u32 {
         let mut number_of_entries_deleted = 0;
 
         for key in keys {
@@ -135,7 +137,7 @@ impl Soul {
         number_of_entries_deleted
     }
 
-    pub fn exists(&self, keys: Vec<Vec<u8>>, now: SystemTime) -> u32 {
+    pub fn exists(&self, keys: Vec<Vec<u8>>, now: u64) -> u32 {
         let mut number_of_entries_that_exist = 0;
 
         for key in keys {
@@ -151,7 +153,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         field_value_pairs: Vec<(Vec<u8>, Vec<u8>)>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<u32, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::Hash(map)) => {
@@ -190,7 +192,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         field: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Hash(map)) => Ok(map.get(&field).cloned()),
@@ -203,7 +205,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         fields: Vec<Vec<u8>>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         let mut values = Vec::new();
 
@@ -220,12 +222,7 @@ impl Soul {
         }
     }
 
-    pub fn hdel(
-        &mut self,
-        key: Vec<u8>,
-        fields: Vec<Vec<u8>>,
-        now: SystemTime,
-    ) -> Result<u32, Sacrilege> {
+    pub fn hdel(&mut self, key: Vec<u8>, fields: Vec<Vec<u8>>, now: u64) -> Result<u32, Sacrilege> {
         let mut amount_of_deleted_values = 0;
 
         match self.get_mut_valid_value(&key, now) {
@@ -243,12 +240,7 @@ impl Soul {
         }
     }
 
-    pub fn hexists(
-        &mut self,
-        key: Vec<u8>,
-        field: Vec<u8>,
-        now: SystemTime,
-    ) -> Result<u32, Sacrilege> {
+    pub fn hexists(&mut self, key: Vec<u8>, field: Vec<u8>, now: u64) -> Result<u32, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Hash(map)) => {
                 if map.get(&field).is_some() {
@@ -262,7 +254,7 @@ impl Soul {
         }
     }
 
-    pub fn hlen(&mut self, key: Vec<u8>, now: SystemTime) -> Result<usize, Sacrilege> {
+    pub fn hlen(&mut self, key: Vec<u8>, now: u64) -> Result<usize, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Hash(map)) => Ok(map.len()),
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::HLEN)),
@@ -274,7 +266,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         mut elements: Vec<Vec<u8>>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -296,7 +288,7 @@ impl Soul {
         }
     }
 
-    pub fn lpop(&mut self, key: Vec<u8>, now: SystemTime) -> Result<Option<Vec<u8>>, Sacrilege> {
+    pub fn lpop(&mut self, key: Vec<u8>, now: u64) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
@@ -326,7 +318,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         count: usize,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
@@ -365,7 +357,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         elements: Vec<Vec<u8>>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -386,7 +378,7 @@ impl Soul {
         }
     }
 
-    pub fn rpop(&mut self, key: Vec<u8>, now: SystemTime) -> Result<Option<Vec<u8>>, Sacrilege> {
+    pub fn rpop(&mut self, key: Vec<u8>, now: u64) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 if let (Value::List(list), expiry) = occupied.get_mut() {
@@ -416,7 +408,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         count: usize,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
@@ -451,7 +443,7 @@ impl Soul {
         }
     }
 
-    pub fn llen(&self, key: Vec<u8>, now: SystemTime) -> Result<usize, Sacrilege> {
+    pub fn llen(&self, key: Vec<u8>, now: u64) -> Result<usize, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::List(list)) => Ok(list.len()),
             Some(_) => Err(Sacrilege::IncorrectUsage(Command::LLEN)),
@@ -464,7 +456,7 @@ impl Soul {
         key: Vec<u8>,
         mut starting_index: i32,
         mut ending_index: i32,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -508,7 +500,7 @@ impl Soul {
         &self,
         key: Vec<u8>,
         mut index: i32,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<u8>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -534,7 +526,7 @@ impl Soul {
         key: Vec<u8>,
         mut index: i32,
         element: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<(), Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -562,7 +554,7 @@ impl Soul {
         key: Vec<u8>,
         mut count: i32,
         element: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::List(list)) => {
@@ -605,7 +597,7 @@ impl Soul {
         }
     }
 
-    pub fn expire(&mut self, key: Vec<u8>, expiry: SystemTime, now: SystemTime) -> u32 {
+    pub fn expire(&mut self, key: Vec<u8>, expiry: u64, now: u64) -> u32 {
         match self.0.entry(key) {
             Entry::Occupied(mut occupied) => {
                 let (_, existing_expiry) = occupied.get_mut();
@@ -630,11 +622,14 @@ impl Soul {
                 let (_, existing_expiry) = occupied.get_mut();
 
                 if let Some(expiry) = existing_expiry {
-                    if *expiry < now {
+                    let expiry =
+                        SystemTime::from(UNIX_EPOCH + std::time::Duration::from_secs(*expiry));
+
+                    if expiry < now {
                         occupied.remove();
                         -2
                     } else {
-                        let Ok(duration) = (*expiry).duration_since(now) else {
+                        let Ok(duration) = SystemTime::from(expiry).duration_since(now) else {
                             occupied.remove();
                             return -2;
                         };
@@ -655,11 +650,7 @@ impl Soul {
         }
     }
 
-    pub fn mget(
-        &self,
-        terms_iter: IntoIter<Vec<u8>>,
-        now: SystemTime,
-    ) -> Option<Vec<Option<Vec<u8>>>> {
+    pub fn mget(&self, terms_iter: IntoIter<Vec<u8>>, now: u64) -> Option<Vec<Option<Vec<u8>>>> {
         let mut result = Vec::with_capacity(terms_iter.len());
 
         for key in terms_iter {
@@ -678,7 +669,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::Set(set)) => {
@@ -714,7 +705,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_mut_valid_value(&key, now) {
             Some(Value::Set(set)) => {
@@ -741,7 +732,7 @@ impl Soul {
         &mut self,
         key: Vec<u8>,
         value: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<usize, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Set(set)) => {
@@ -759,7 +750,7 @@ impl Soul {
     pub fn hgetall(
         &mut self,
         key: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Hash(map)) => {
@@ -780,7 +771,7 @@ impl Soul {
     pub fn smembers(
         &mut self,
         key: Vec<u8>,
-        now: SystemTime,
+        now: u64,
     ) -> Result<Option<Vec<Option<Vec<u8>>>>, Sacrilege> {
         match self.get_valid_value(&key, now) {
             Some(Value::Set(set)) => {
@@ -797,7 +788,7 @@ impl Soul {
         }
     }
 
-    fn get_valid_value(&self, key: &Vec<u8>, now: SystemTime) -> Option<&Value> {
+    fn get_valid_value(&self, key: &Vec<u8>, now: u64) -> Option<&Value> {
         match self.0.get(key) {
             Some((value, Some(expiry))) => {
                 if *expiry < now {
@@ -811,7 +802,7 @@ impl Soul {
         }
     }
 
-    fn get_mut_valid_value(&mut self, key: &Vec<u8>, now: SystemTime) -> Option<&mut Value> {
+    fn get_mut_valid_value(&mut self, key: &Vec<u8>, now: u64) -> Option<&mut Value> {
         match self.0.get_mut(key) {
             Some((value, Some(expiry))) => {
                 if *expiry < now {
@@ -825,7 +816,7 @@ impl Soul {
         }
     }
 
-    pub fn remove_valid_value(&mut self, key: &Vec<u8>, now: SystemTime) -> Option<Value> {
+    pub fn remove_valid_value(&mut self, key: &Vec<u8>, now: u64) -> Option<Value> {
         match self.0.remove(key) {
             Some((value, Some(expiry))) => {
                 if expiry < now {
@@ -993,125 +984,125 @@ pub struct Wish {
 pub enum CommandType {
     Get {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Set {
         key: Vec<u8>,
-        value: (Value, Option<SystemTime>),
+        value: (Value, Option<u64>),
     },
     Del {
         keys: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Append {
         key: Vec<u8>,
         value: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Incr {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Decr {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Strlen {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Exists {
         keys: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Hset {
         key: Vec<u8>,
         field_value_pairs: Vec<(Vec<u8>, Vec<u8>)>,
-        time: SystemTime,
+        time: u64,
     },
     Hget {
         key: Vec<u8>,
         field: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Hmget {
         key: Vec<u8>,
         fields: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Hdel {
         key: Vec<u8>,
         fields: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Hexists {
         key: Vec<u8>,
         field: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Hlen {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Lpush {
         key: Vec<u8>,
         elements: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Lpop {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     LpopM {
         key: Vec<u8>,
         count: usize,
-        time: SystemTime,
+        time: u64,
     },
     Rpush {
         key: Vec<u8>,
         elements: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Rpop {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     RpopM {
         key: Vec<u8>,
         count: usize,
-        time: SystemTime,
+        time: u64,
     },
     Llen {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Lrange {
         key: Vec<u8>,
         starting_index: i32,
         ending_index: i32,
-        time: SystemTime,
+        time: u64,
     },
     Lindex {
         key: Vec<u8>,
         index: i32,
-        time: SystemTime,
+        time: u64,
     },
     Lset {
         key: Vec<u8>,
         index: i32,
         element: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Lrem {
         key: Vec<u8>,
         count: i32,
         element: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Expire {
         key: Vec<u8>,
-        expiry: SystemTime,
-        time: SystemTime,
+        expiry: u64,
+        time: u64,
     },
     Ttl {
         key: Vec<u8>,
@@ -1129,30 +1120,30 @@ pub enum CommandType {
     },
     Mget {
         terms_iter: IntoIter<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Sadd {
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Srem {
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
-        time: SystemTime,
+        time: u64,
     },
     Sismember {
         key: Vec<u8>,
         value: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Hgetall {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Smembers {
         key: Vec<u8>,
-        time: SystemTime,
+        time: u64,
     },
     Unsubscribe {
         terms: Vec<Vec<u8>>,
@@ -1193,9 +1184,7 @@ impl Temple {
                                 if tx
                                     .send(Decree::Deliver(Gift {
                                         token,
-                                        response: Response::SubscribedChannels(
-                                            subscribed_channels,
-                                        ),
+                                        response: Response::SubscribedChannels(subscribed_channels),
                                     }))
                                     .is_err()
                                 {
@@ -2051,7 +2040,7 @@ impl Temple {
         Temple { tx }
     }
 
-    pub fn get(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn get(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2065,13 +2054,7 @@ impl Temple {
         }
     }
 
-    pub fn set(
-        &self,
-        key: Vec<u8>,
-        value: (Value, Option<SystemTime>),
-        tx: Sender<Decree>,
-        token: Token,
-    ) {
+    pub fn set(&self, key: Vec<u8>, value: (Value, Option<u64>), tx: Sender<Decree>, token: Token) {
         if self
             .tx
             .send(Wish {
@@ -2085,7 +2068,7 @@ impl Temple {
         }
     }
 
-    pub fn del(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn del(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2099,7 +2082,7 @@ impl Temple {
         }
     }
 
-    pub fn exists(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn exists(&self, keys: Vec<Vec<u8>>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2119,7 +2102,7 @@ impl Temple {
         value: Vec<u8>,
         tx: Sender<Decree>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2134,7 +2117,7 @@ impl Temple {
         }
     }
 
-    pub fn incr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn incr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2148,7 +2131,7 @@ impl Temple {
         }
     }
 
-    pub fn decr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn decr(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2162,7 +2145,7 @@ impl Temple {
         }
     }
 
-    pub fn strlen(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn strlen(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2182,7 +2165,7 @@ impl Temple {
         field_value_pairs: Vec<(Vec<u8>, Vec<u8>)>,
         tx: Sender<Decree>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2203,14 +2186,7 @@ impl Temple {
         }
     }
 
-    pub fn hget(
-        &self,
-        tx: Sender<Decree>,
-        key: Vec<u8>,
-        field: Vec<u8>,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn hget(&self, tx: Sender<Decree>, key: Vec<u8>, field: Vec<u8>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2230,7 +2206,7 @@ impl Temple {
         key: Vec<u8>,
         fields: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2251,7 +2227,7 @@ impl Temple {
         key: Vec<u8>,
         fields: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2272,7 +2248,7 @@ impl Temple {
         key: Vec<u8>,
         field: Vec<u8>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2287,7 +2263,7 @@ impl Temple {
         }
     }
 
-    pub fn hlen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
+    pub fn hlen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2307,7 +2283,7 @@ impl Temple {
         key: Vec<u8>,
         elements: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2316,9 +2292,7 @@ impl Temple {
                 token,
                 command_type: CommandType::Lpush {
                     key,
-
                     elements,
-
                     time,
                 },
             })
@@ -2328,7 +2302,7 @@ impl Temple {
         }
     }
 
-    pub fn lpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
+    pub fn lpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2342,14 +2316,7 @@ impl Temple {
         }
     }
 
-    pub fn lpop_m(
-        &self,
-        tx: Sender<Decree>,
-        key: Vec<u8>,
-        count: usize,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn lpop_m(&self, tx: Sender<Decree>, key: Vec<u8>, count: usize, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2369,7 +2336,7 @@ impl Temple {
         key: Vec<u8>,
         elements: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2378,9 +2345,7 @@ impl Temple {
                 token,
                 command_type: CommandType::Rpush {
                     key,
-
                     elements,
-
                     time,
                 },
             })
@@ -2390,7 +2355,7 @@ impl Temple {
         }
     }
 
-    pub fn rpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
+    pub fn rpop(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2404,14 +2369,7 @@ impl Temple {
         }
     }
 
-    pub fn rpop_m(
-        &self,
-        tx: Sender<Decree>,
-        key: Vec<u8>,
-        count: usize,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn rpop_m(&self, tx: Sender<Decree>, key: Vec<u8>, count: usize, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2425,7 +2383,7 @@ impl Temple {
         }
     }
 
-    pub fn llen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: SystemTime) {
+    pub fn llen(&self, tx: Sender<Decree>, key: Vec<u8>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2446,7 +2404,7 @@ impl Temple {
         starting_index: i32,
         ending_index: i32,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2457,7 +2415,6 @@ impl Temple {
                     key,
                     starting_index,
                     ending_index,
-
                     time,
                 },
             })
@@ -2467,14 +2424,7 @@ impl Temple {
         }
     }
 
-    pub fn lindex(
-        &self,
-        tx: Sender<Decree>,
-        key: Vec<u8>,
-        index: i32,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn lindex(&self, tx: Sender<Decree>, key: Vec<u8>, index: i32, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2495,7 +2445,7 @@ impl Temple {
         index: i32,
         element: Vec<u8>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2524,7 +2474,7 @@ impl Temple {
         count: i32,
         element: Vec<u8>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2533,10 +2483,8 @@ impl Temple {
                 token,
                 command_type: CommandType::Lrem {
                     key,
-
                     element,
                     count,
-
                     time,
                 },
             })
@@ -2546,14 +2494,7 @@ impl Temple {
         }
     }
 
-    pub fn expire(
-        &self,
-        tx: Sender<Decree>,
-        key: Vec<u8>,
-        expiry: SystemTime,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn expire(&self, tx: Sender<Decree>, key: Vec<u8>, expiry: u64, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2623,13 +2564,7 @@ impl Temple {
         }
     }
 
-    pub fn mget(
-        &self,
-        terms_iter: IntoIter<Vec<u8>>,
-        tx: Sender<Decree>,
-        token: Token,
-        time: SystemTime,
-    ) {
+    pub fn mget(&self, terms_iter: IntoIter<Vec<u8>>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2649,7 +2584,7 @@ impl Temple {
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2670,7 +2605,7 @@ impl Temple {
         key: Vec<u8>,
         values: Vec<Vec<u8>>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2691,7 +2626,7 @@ impl Temple {
         key: Vec<u8>,
         value: Vec<u8>,
         token: Token,
-        time: SystemTime,
+        time: u64,
     ) {
         if self
             .tx
@@ -2706,7 +2641,7 @@ impl Temple {
         }
     }
 
-    pub fn hgetall(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn hgetall(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {
@@ -2720,7 +2655,7 @@ impl Temple {
         }
     }
 
-    pub fn smembers(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: SystemTime) {
+    pub fn smembers(&self, key: Vec<u8>, tx: Sender<Decree>, token: Token, time: u64) {
         if self
             .tx
             .send(Wish {

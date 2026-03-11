@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use mio::Token;
 
@@ -29,7 +29,15 @@ pub fn strlen(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, toke
     terms_iter.next();
 
     if let Some(key) = terms_iter.next() {
-        temple.strlen(key, tx, token, SystemTime::now());
+        temple.strlen(
+            key,
+            tx,
+            token,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        );
     } else if tx
         .send(Decree::Deliver(Gift {
             token,

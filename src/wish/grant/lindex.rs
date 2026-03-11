@@ -1,4 +1,4 @@
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
 use mio::Token;
 
@@ -19,16 +19,25 @@ pub fn lindex(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, toke
                 response: Response::Error(Sacrilege::IncorrectNumberOfArguments(Command::LINDEX)),
             }))
             .is_err()
-        {
-            eprintln!("angel panicked");
-        }
+    {
+        eprintln!("angel panicked");
+    }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
     if let (Some(key), Some(index)) = (terms_iter.next(), terms_iter.next()) {
         if let Ok(index) = bytes_to_i32(&index) {
-            temple.lindex(tx, key, index, token, SystemTime::now());
+            temple.lindex(
+                tx,
+                key,
+                index,
+                token,
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0),
+            );
         } else if tx
             .send(Decree::Deliver(Gift {
                 token,

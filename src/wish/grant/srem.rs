@@ -6,14 +6,9 @@ use crate::{
     },
 };
 use mio::Token;
-use std::{sync::mpsc::Sender, time::SystemTime};
+use std::{sync::mpsc::Sender, time::{SystemTime, UNIX_EPOCH}};
 
-pub fn srem(
-    terms: Vec<Vec<u8>>,
-    temple: &mut Temple,
-    tx: Sender<Decree>,
-    token: Token,
-)  {
+pub fn srem(terms: Vec<Vec<u8>>, temple: &mut Temple, tx: Sender<Decree>, token: Token) {
     if terms.len() < 3 {
         if tx
             .send(Decree::Deliver(Gift {
@@ -25,15 +20,22 @@ pub fn srem(
             eprintln!("angel panicked");
         };
 
-        return ;
+        return;
     }
 
     let mut terms_iter = terms.into_iter();
     terms_iter.next();
 
     if let Some(key) = terms_iter.next() {
-        temple.srem(tx, key, terms_iter.collect(), token, SystemTime::now());
+        temple.srem(
+            tx,
+            key,
+            terms_iter.collect(),
+            token,
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+        );
     }
-
-    
 }
