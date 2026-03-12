@@ -70,8 +70,4 @@ Sharding
 
 Metacommands
 
-Command length cap
-
-Persistance
-
 Cli options
