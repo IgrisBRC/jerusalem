@@ -346,6 +346,12 @@ pub struct Temple {
     tx: Sender<Wish>,
 }
 
+impl Default for Temple {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Temple {
     pub fn new() -> Self {
         let (tx, rx): (Sender<Wish>, Receiver<Wish>) = std::sync::mpsc::channel();

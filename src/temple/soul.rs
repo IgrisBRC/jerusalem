@@ -632,13 +632,13 @@ impl Soul {
 
                 if let Some(expiry) = existing_expiry {
                     let expiry =
-                        SystemTime::from(UNIX_EPOCH + std::time::Duration::from_secs(*expiry));
+                        (UNIX_EPOCH + std::time::Duration::from_secs(*expiry));
 
                     if expiry < now {
                         occupied.remove();
                         -2
                     } else {
-                        let Ok(duration) = SystemTime::from(expiry).duration_since(now) else {
+                        let Ok(duration) = expiry.duration_since(now) else {
                             occupied.remove();
                             return -2;
                         };
