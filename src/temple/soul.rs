@@ -1,5 +1,6 @@
 use std::collections::hash_map::Entry;
 use std::collections::{HashSet, VecDeque};
+use std::path::PathBuf;
 use std::time::UNIX_EPOCH;
 use std::vec::IntoIter;
 use std::{collections::HashMap, time::SystemTime};
@@ -39,7 +40,7 @@ impl Soul {
         Soul(HashMap::new())
     }
 
-    pub fn save(&self, path: String) -> Result<(), SaveError> {
+    pub fn save(&self, path: PathBuf) -> Result<(), SaveError> {
         let bytes = match rkyv::to_bytes::<Error>(self) {
             Ok(bytes) => bytes,
             Err(err) => return Err(SerializationError(err.to_string())),
