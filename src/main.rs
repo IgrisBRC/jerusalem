@@ -43,7 +43,7 @@ fn main() {
 
     let mut server_temple = temple.clone();
 
-    let (ingress_tx, ingress_rx) = std::sync::mpsc::channel();
+    let (ingress_tx, ingress_rx) = std::sync::mpsc::channel::<(Token, Pilgrim)>();
     let (egress_tx, egress_rx) = std::sync::mpsc::channel();
 
     let shutdown_tx = egress_tx.clone();
@@ -77,23 +77,6 @@ fn main() {
     };
 
     loop {
-        while let Ok((token, pilgrim)) = ingress_rx.try_recv() {
-            ingress_map.insert(token, pilgrim);
-
-            if let Some(p) = ingress_map.get_mut(&token)
-                && poll
-                    .registry()
-                    .reregister(
-                        &mut p.stream,
-                        token,
-                        Interest::READABLE | Interest::WRITABLE,
-                    )
-                    .is_err()
-            {
-                // eprintln!("reregister() failed");
-            }
-        }
-
         while let Ok(token) = egress_rx.try_recv() {
             if token == Token(0) {
                 std::process::exit(0);
@@ -107,10 +90,26 @@ fn main() {
         }
 
         if poll
-            .poll(&mut events, Some(std::time::Duration::from_millis(10)))
+            .poll(&mut events, Some(std::time::Duration::from_millis(100)))
             .is_err()
         {
             eprintln!("poll() failed");
+        }
+
+        while let Ok((token, mut pilgrim)) = ingress_rx.try_recv() {
+            if poll
+                .registry()
+                .reregister(
+                    &mut pilgrim.stream,
+                    token,
+                    Interest::READABLE | Interest::WRITABLE,
+                )
+                .is_err()
+            {
+                // eprintln!("reregister() failed");
+            }
+
+            ingress_map.insert(token, pilgrim);
         }
 
         for event in &events {
